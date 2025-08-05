@@ -407,7 +407,7 @@ do
         Default = 200,
         Min = 20,
         Max = 300,
-        Rounding = 1,
+        Rounding = 0.1,
         Callback = function(Value)
             tweenspeed = Value
         end,
@@ -664,7 +664,7 @@ do
     local selectrarityPets = {}
 
     local raritymultiPets = Tabs.Sell:AddDropdown('raritymultiPets', {
-        Title = 'Select Pet Rarity',
+        Title = 'Select Pet Rarity to Sell',
         Values = rarities,
         Multi = true,
         Default = { 'Common', 'Uncommon' },
@@ -681,9 +681,80 @@ do
         selectrarityPets = Values
     end)
 
-    -- Autosell pets toggle
+    -- Manual pet selection system
+    local selectedPetsToDelete = {}
+
+    -- Function to get all current pets with details
+    local function getCurrentPets()
+        local pets = {}
+        local player = game:GetService('Players').LocalPlayer
+        local petsFolder = player:WaitForChild('PlayerGui'):FindFirstChild('Profile'):FindFirstChild('Pets')
+        if petsFolder then
+            for _, pet in pairs(petsFolder:GetChildren()) do
+                local rarity = pet:FindFirstChild('Rarity')
+                local rarityText = 'Unknown'
+                if rarity then
+                    local rarityValue = tostring(rarity.Value)
+                    for name, value in pairs(rarityMap) do
+                        if value == rarityValue then
+                            rarityText = name
+                            break
+                        end
+                    end
+                end
+                local petInfo = pet.Name .. ' (' .. rarityText .. ')'
+                table.insert(pets, petInfo)
+            end
+        end
+        return pets
+    end
+
+    -- Function to refresh pet list
+    local function refreshPetList()
+        local currentPets = getCurrentPets()
+        -- Clear current selection
+        selectedPetsToDelete = {}
+        -- Update dropdown values
+        if petSelectionDropdown then
+            petSelectionDropdown:SetValues(currentPets)
+        end
+    end
+
+    -- Dropdown to select specific pets to delete
+    local petSelectionDropdown = Tabs.Sell:AddDropdown('petSelectToDelete', {
+        Title = 'Select Pets to DELETE',
+        Values = getCurrentPets(),
+        Multi = true,
+        Default = {},
+    })
+
+    petSelectionDropdown:OnChanged(function(Value)
+        local selected = {}
+        for petInfo, selectedState in pairs(Value) do
+            if selectedState then
+                table.insert(selected, petInfo)
+            end
+        end
+        selectedPetsToDelete = selected
+    end)
+
+    -- Button to refresh pet list
+    Tabs.Sell:AddButton({
+        Title = 'Refresh Pet List',
+        Description = 'Scan pets folder and update the list',
+        Callback = function()
+            refreshPetList()
+            Fluent:Notify({
+                Title = 'Pet List Updated',
+                Content = 'Pet list has been refreshed!',
+                Duration = 2,
+            })
+        end,
+    })
+
+    -- Autosell pets by rarity toggle
     local autosellallpet = Tabs.Sell:AddToggle('autosellallpet', {
-        Title = 'Sell Pets',
+        Title = 'Sell Pets by Rarity',
         Default = false,
     })
 
@@ -727,24 +798,70 @@ do
         end
     end)
 
-    -- Ensure toggle is off by default
+    -- Manual pet deletion toggle
+    local deleteSelectedPets = Tabs.Sell:AddToggle('deleteSelectedPets', {
+        Title = 'Delete Selected Pets',
+        Description = 'Only deletes pets you manually selected above',
+        Default = false,
+    })
+
+    deleteSelectedPets:OnChanged(function()
+        while Options.deleteSelectedPets.Value do
+            local player = game:GetService('Players').LocalPlayer
+            local petsFolder = player:WaitForChild('PlayerGui'):FindFirstChild('Profile'):FindFirstChild('Pets')
+            
+            if petsFolder and #selectedPetsToDelete > 0 then
+                local petsToSell = {}
+                
+                for _, pet in pairs(petsFolder:GetChildren()) do
+                    local rarity = pet:FindFirstChild('Rarity')
+                    local rarityText = 'Unknown'
+                    if rarity then
+                        local rarityValue = tostring(rarity.Value)
+                        for name, value in pairs(rarityMap) do
+                            if value == rarityValue then
+                                rarityText = name
+                                break
+                            end
+                        end
+                    end
+                    local petInfo = pet.Name .. ' (' .. rarityText .. ')'
+                    
+                    -- Check if this pet is in the selected deletion list
+                    if table.find(selectedPetsToDelete, petInfo) then
+                        table.insert(petsToSell, pet)
+                    end
+                end
+                
+                if #petsToSell > 0 then
+                    local args = {
+                        petsToSell,
+                        {},
+                    }
+                    game:GetService('ReplicatedStorage')
+                        :WaitForChild('Systems')
+                        :WaitForChild('ItemSelling')
+                        :WaitForChild('SellItem')
+                        :FireServer(unpack(args))
+                end
+            end
+            
+            task.wait(0.1)
+        end
+    end)
+
+    -- Ensure toggles are off by default
     Options.autosellallpet:SetValue(false)
+    Options.deleteSelectedPets:SetValue(false)
 
     -- Add Section for Chest Buying
     Tabs.Sell:AddSection('Chest Buying')
 
     -- Chest names for the dropdown
     local chestNames = {
-        'FrozenSkillChest',
-        'MushroomSkillChest',
-        'GoldenSkillChest',
-        'MossySkillChest',
-        'SandySkillChest',
-        'CaveSkillChest',
-        'AstralSkillChest',
-        'BurningSkillChest',
-        'DesertSkillChest',
-        'SkillChest',
+        'FrozenSkillChest', 'MushroomSkillChest', 'GoldenSkillChest', 
+        'MossySkillChest', 'SandySkillChest', 'CaveSkillChest', 
+        'AstralSkillChest', 'BurningSkillChest', 'DesertSkillChest', 'SkillChest'
     }
 
     -- Selected chests storage
@@ -758,14 +875,15 @@ do
         Default = { 'SkillChest' },
     })
 
-    -- Update selected chests when dropdown changes
+    -- Initialize selected chests with default value
     chestmulti:OnChanged(function(Value)
-        selectedChests = {}
-        for chestName, selected in pairs(Value) do
-            if selected then
-                table.insert(selectedChests, chestName)
+        local chestValues = {}
+        for ChestName, State in next, Value do
+            if State then
+                table.insert(chestValues, ChestName)
             end
         end
+        selectedChests = chestValues
     end)
 
     -- Amount slider for chests
@@ -775,17 +893,17 @@ do
         Description = 'How many chests to buy at once',
         Default = 5,
         Min = 1,
-        Max = 5,
+        Max = 50,
         Rounding = 1,
         Callback = function(Value)
             chestAmount = Value
-        end,
+        end
     })
 
     -- Toggle to buy selected chests
     local autobuyChests = Tabs.Sell:AddToggle('autobuyChests', {
-        Title = 'Auto Buy Chests',
-        Default = false,
+        Title = 'Auto Buy Chests', 
+        Default = false
     })
 
     autobuyChests:OnChanged(function()
@@ -793,18 +911,16 @@ do
             for _, chestName in pairs(selectedChests) do
                 local args = {
                     chestName,
-                    chestAmount,
+                    chestAmount
                 }
-                game
-                    :GetService('ReplicatedStorage')
-                    :WaitForChild('Systems')
-                    :WaitForChild('ChestShop')
-                    :WaitForChild('OpenChest')
-                    :InvokeServer(unpack(args))
+                game:GetService('ReplicatedStorage'):WaitForChild('Systems'):WaitForChild('ChestShop'):WaitForChild('OpenChest'):InvokeServer(unpack(args))
             end
             task.wait(0.1)
         end
     end)
+
+    -- Ensure toggle is off by default
+    Options.autobuyChests:SetValue(false)
 
     local autoopenpetchest = Tabs.Main:AddToggle(
         'autoopenpetchest',
