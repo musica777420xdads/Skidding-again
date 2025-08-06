@@ -7,8 +7,6 @@ until game:IsLoaded()
 
 task.wait(3)
 
-print("No way this works")
-
 local Players = game:GetService('Players')
 local TweenService = game:GetService('TweenService')
 local Lighting = game:GetService('Lighting')
@@ -141,7 +139,7 @@ icon.Name = 'CuackerIcon'
 icon.Size = UDim2.new(0, 55, 0, 50)
 icon.Position = UDim2.new(0, 200, 0, 150)
 icon.BackgroundTransparency = 1
-icon.Image = 'rbxassetid://105059922903197' -- replace with your real asset ID
+icon.Image = 'rbxassetid://7733960981' -- replace with your real asset ID
 icon.Parent = gui
 local corner = Instance.new('UICorner')
 corner.CornerRadius = UDim.new(0, 8) -- You can tweak the '8' for more or less rounding
@@ -430,6 +428,42 @@ do
 
     Distance:SetValue(50)
 
+    -- Auto open pet chest
+    local autoopenpetchest = Tabs.Main:AddToggle(
+        'autoopenpetchest',
+        { Title = 'Open All Pet Chest', Default = false }
+    )
+
+    autoopenpetchest:OnChanged(function()
+        while Options.autoopenpetchest.Value do
+            local inventory = game
+                :GetService('Players').LocalPlayer
+                :WaitForChild('PlayerGui')
+                :FindFirstChild('Profile')
+                :FindFirstChild('Inventory')
+            if inventory then
+                for _, petchest in pairs(inventory:GetChildren()) do
+                    local count = petchest:FindFirstChild('Count')
+                    if count then
+                        local args = {
+                            petchest,
+                            1,
+                        }
+                        game
+                            :GetService('ReplicatedStorage')
+                            :WaitForChild('Systems')
+                            :WaitForChild('Pets')
+                            :WaitForChild('OpenPetChest')
+                            :FireServer(unpack(args))
+                    end
+                end
+            end
+            task.wait(0.1)
+        end
+    end)
+
+    Options.autoopenpetchest:SetValue(false)
+
     local selected_dungeon = 'AstralDungeon'
     local dungeons = Tabs.Dungeon:AddDropdown('dungeons', {
         Title = 'Select Dungeon',
@@ -529,13 +563,13 @@ do
     })
 
     -- Auto Anti-Afk
-    local Toggle4 = Tabs.AntiAfk:AddToggle('AntiAfk', {
+    local Toggle5 = Tabs.AntiAfk:AddToggle('AntiAfk', {
         Title = 'Anti-Afk',
         Description = 'This will prevent you from being kicked when AFK',
         Default = false,
     })
 
-    Toggle4:OnChanged(function()
+    Toggle5:OnChanged(function()
         task.spawn(function()
             while Options.AntiAfk.Value do
                 -- Simulate player activity to prevent AFK kick
@@ -615,9 +649,28 @@ do
 
                 for _, item in pairs(inventory:GetChildren()) do
                     local rarity = item:FindFirstChild('Rarity')
+                    local itemName = item.Name:lower()
+                    
+                    -- List of protected item names (gems/valuables)
+                    local protectedItems = {
+                        'gem', 'ruby', 'emerald', 'amethyst', 'amathist',
+                        'diamond', 'sapphire', 'topaz', 'opal', 'crystal'
+                    }
+                    
+                    -- Check if item name contains any protected words
+                    local isProtected = false
+                    for _, protectedWord in pairs(protectedItems) do
+                        if itemName:find(protectedWord) then
+                            isProtected = true
+                            break
+                        end
+                    end
+                    
+                    -- Only sell if: matches rarity AND is not protected
                     if
                         rarity
                         and table.find(selectrarity, tostring(rarity.Value))
+                        and not isProtected
                     then
                         table.insert(itemsToSell, item)
                     end
@@ -634,7 +687,7 @@ do
                         :WaitForChild('Systems')
                         :WaitForChild('ItemSelling')
                         :WaitForChild('SellItem')
-                        :FireServer(unpack(args)) -- or InvokeServer depending on your game
+                        :FireServer(unpack(args))
                 end
             end
 
@@ -642,113 +695,122 @@ do
         end
     end)
 
-    -- Add Section for Pet Selling
-    Tabs.Sell:AddSection('Pet Selling')
+    -- Add Section for Chest Buying
+    Tabs.Sell:AddSection('Chest Buying')
 
-    local rarityMap = {
-        Common = '1',
-        Uncommon = '2',
-        Rare = '3',
-        Epic = '4',
-        Legendary = '5',
-        Mythic = '6',
+    -- Chest names for the dropdown
+    local chestNames = {
+        'FrozenSkillChest',
+        'MushroomSkillChest',
+        'GoldenSkillChest',
+        'MossySkillChest',
+        'SandySkillChest',
+        'CaveSkillChest',
+        'AstralSkillChest',
+        'BurningSkillChest',
+        'DesertSkillChest',
+        'SkillChest',
     }
 
-    local rarities = {
-        'Common',
-        'Uncommon',
-        'Rare',
-        'Epic',
-        'Legendary',
-        'Mythic',
-    }
+    -- Selected chests storage
+    local selectedChests = {}
 
-    local selectrarityPets = {}
-
-    local raritymultiPets = Tabs.Sell:AddDropdown('raritymultiPets', {
-        Title = 'Select Pet Rarity to Sell',
-        Values = rarities,
+    -- Multi-select dropdown for chests
+    local chestmulti = Tabs.Sell:AddDropdown('chestmulti', {
+        Title = 'Select Chests to Buy',
+        Values = chestNames,
         Multi = true,
-        Default = { 'Common', 'Uncommon' },
+        Default = { 'SkillChest' },
     })
 
-    raritymultiPets:OnChanged(function(Value)
-        local Values = {}
-        for RarityName, State in next, Value do
-            local rarityNum = rarityMap[RarityName]
-            if rarityNum then
-                table.insert(Values, rarityNum)
+    -- Initialize selected chests with default value
+    chestmulti:OnChanged(function(Value)
+        local chestValues = {}
+        for ChestName, State in next, Value do
+            if State then
+                table.insert(chestValues, ChestName)
             end
         end
-        selectrarityPets = Values
+        selectedChests = chestValues
     end)
 
-    -- Manual pet selection system
-    local selectedPetsToDelete = {}
-    local customPetNames = {} -- Store custom added names
+    -- Amount slider for chests
+    local chestAmount = 5
+    local chestAmountSlider = Tabs.Sell:AddSlider('chestAmount', {
+        Title = 'Chest Amount',
+        Description = 'How many chests to buy at once',
+        Default = 5,
+        Min = 1,
+        Max = 50,
+        Rounding = 1,
+        Callback = function(Value)
+            chestAmount = Value
+        end,
+    })
 
-    -- Function to get all current pets with details
-    local function getCurrentPets()
-        local pets = {}
-        local player = game:GetService('Players').LocalPlayer
-        local petsFolder = player:WaitForChild('PlayerGui'):FindFirstChild('Profile'):FindFirstChild('Pets')
-        if petsFolder then
-            for _, pet in pairs(petsFolder:GetChildren()) do
-                local rarity = pet:FindFirstChild('Rarity')
-                local rarityText = 'Unknown'
-                if rarity then
-                    local rarityValue = tostring(rarity.Value)
-                    for name, value in pairs(rarityMap) do
-                        if value == rarityValue then
-                            rarityText = name
-                            break
-                        end
-                    end
-                end
-                local petInfo = pet.Name .. ' (' .. rarityText .. ')'
-                table.insert(pets, petInfo)
+    -- Toggle to buy selected chests
+    local autobuyChests = Tabs.Sell:AddToggle('autobuyChests', {
+        Title = 'Auto Buy Chests',
+        Default = false,
+    })
+
+    autobuyChests:OnChanged(function()
+        while Options.autobuyChests.Value do
+            for _, chestName in pairs(selectedChests) do
+                local args = {
+                    chestName,
+                    chestAmount,
+                }
+                game
+                    :GetService('ReplicatedStorage')
+                    :WaitForChild('Systems')
+                    :WaitForChild('ChestShop')
+                    :WaitForChild('OpenChest')
+                    :InvokeServer(unpack(args))
             end
+            task.wait(0.1)
         end
-        
-        -- Add custom pet names to the list
-        for _, customName in pairs(customPetNames) do
-            if not table.find(pets, customName) then
-                table.insert(pets, customName .. ' (Custom)')
-            end
-        end
-        
-        return pets
-    end
+    end)
 
-    -- Function to refresh pet list
-    local function refreshPetList()
-        local currentPets = getCurrentPets()
-        -- Update dropdown values
-        if petSelectionDropdown then
-            petSelectionDropdown:SetValues(currentPets)
-        end
-    end
+    -- Ensure toggle is off by default
+    Options.autobuyChests:SetValue(false)
 
-    -- Input field for custom pet names
-    local customPetInput = Tabs.Sell:AddInput('customPetInput', {
-        Title = 'Add Custom Pet Name',
-        Description = 'Type pet name and press Enter',
+    -- Add Section for Pet Management
+    Tabs.Sell:AddSection('Pet Management')
+
+    -- Input field for pets to keep
+    local petsToKeep = ""
+    local petsToKeepInput = Tabs.Sell:AddInput('petsToKeepInput', {
+        Title = 'Pets to Keep (Names)',
+        Description = 'Enter pet names to keep, separated by commas',
         Default = '',
-        Placeholder = 'Enter pet name...',
+        Placeholder = 'Example: Dragon, Phoenix, Unicorn',
         Numeric = false,
-        Finished = true,
-        Callback = function(Value)
-            if Value and Value ~= '' then
-                local trimmedValue = string.gsub(Value, '^%s*(.-)%s*
-
-    -- Autosell pets by rarity toggle
-    local autosellallpet = Tabs.Sell:AddToggle('autosellallpet', {
-        Title = 'Sell Pets by Rarity',
-        Default = false,
+        Finished = false,
     })
 
-    autosellallpet:OnChanged(function()
-        while Options.autosellallpet.Value do
+    petsToKeepInput:OnChanged(function(Value)
+        petsToKeep = Value
+    end)
+    
+    -- Make sure the variable updates when config loads
+    Options.petsToKeepInput = petsToKeepInput
+
+    -- Function to check if pet should be kept
+    local function shouldKeepPet(petName)
+        -- Only keep pets with exactly these names
+        if petName == "YedrahPet" or petName == "Yedrah" then
+            return true
+        else
+            return false
+        end
+    end
+
+    -- Button to show current pets (for reference)
+    Tabs.Sell:AddButton({
+        Title = 'Show My Pets',
+        Description = 'Print current pet names to console for reference',
+        Callback = function()
             local player = game:GetService('Players').LocalPlayer
             local petsFolder = player
                 :WaitForChild('PlayerGui')
@@ -756,748 +818,38 @@ do
                 :FindFirstChild('Pets')
 
             if petsFolder then
-                local petsToSell = {}
-
+                local petNames = {}
                 for _, pet in pairs(petsFolder:GetChildren()) do
-                    local rarity = pet:FindFirstChild('Rarity')
-                    if
-                        rarity
-                        and table.find(selectrarityPets, tostring(rarity.Value))
-                    then
-                        table.insert(petsToSell, pet)
-                    end
+                    table.insert(petNames, pet.Name)
                 end
-
-                if #petsToSell > 0 then
-                    local args = {
-                        petsToSell,
-                        {},
-                    }
-
-                    game
-                        :GetService('ReplicatedStorage')
-                        :WaitForChild('Systems')
-                        :WaitForChild('ItemSelling')
-                        :WaitForChild('SellItem')
-                        :FireServer(unpack(args))
-                end
-            end
-
-            task.wait(0.1)
-        end
-    end)
-
-    -- Manual pet deletion toggle
-    local deleteSelectedPets = Tabs.Sell:AddToggle('deleteSelectedPets', {
-        Title = 'Delete Selected Pets',
-        Description = 'Only deletes pets you manually selected above',
-        Default = false,
-    })
-
-    deleteSelectedPets:OnChanged(function()
-        while Options.deleteSelectedPets.Value do
-            local player = game:GetService('Players').LocalPlayer
-            local petsFolder = player:WaitForChild('PlayerGui'):FindFirstChild('Profile'):FindFirstChild('Pets')
-            
-            if petsFolder and #selectedPetsToDelete > 0 then
-                local petsToSell = {}
                 
-                for _, pet in pairs(petsFolder:GetChildren()) do
-                    local rarity = pet:FindFirstChild('Rarity')
-                    local rarityText = 'Unknown'
-                    if rarity then
-                        local rarityValue = tostring(rarity.Value)
-                        for name, value in pairs(rarityMap) do
-                            if value == rarityValue then
-                                rarityText = name
-                                break
-                            end
-                        end
-                    end
-                    local petInfo = pet.Name .. ' (' .. rarityText .. ')'
-                    
-                    -- Check if this pet is in the selected deletion list (including custom names)
-                    local shouldDelete = false
-                    for _, selectedPet in pairs(selectedPetsToDelete) do
-                        -- Check exact match or custom name match
-                        if selectedPet == petInfo or 
-                           (string.find(selectedPet, ' %(Custom%)
-
-    -- Ensure toggles are off by default
-    Options.autosellallpet:SetValue(false)
-    Options.deleteSelectedPets:SetValue(false)
-
-    -- Add Section for Chest Buying
-    Tabs.Sell:AddSection('Chest Buying')
-
-    -- Chest names for the dropdown
-    local chestNames = {
-        'FrozenSkillChest', 'MushroomSkillChest', 'GoldenSkillChest', 
-        'MossySkillChest', 'SandySkillChest', 'CaveSkillChest', 
-        'AstralSkillChest', 'BurningSkillChest', 'DesertSkillChest', 'SkillChest'
-    }
-
-    -- Selected chests storage
-    local selectedChests = {}
-
-    -- Multi-select dropdown for chests
-    local chestmulti = Tabs.Sell:AddDropdown('chestmulti', {
-        Title = 'Select Chests to Buy',
-        Values = chestNames,
-        Multi = true,
-        Default = { 'SkillChest' },
-    })
-
-    -- Initialize selected chests with default value
-    chestmulti:OnChanged(function(Value)
-        local chestValues = {}
-        for ChestName, State in next, Value do
-            if State then
-                table.insert(chestValues, ChestName)
-            end
-        end
-        selectedChests = chestValues
-    end)
-
-    -- Amount slider for chests
-    local chestAmount = 5
-    local chestAmountSlider = Tabs.Sell:AddSlider('chestAmount', {
-        Title = 'Chest Amount',
-        Description = 'How many chests to buy at once',
-        Default = 5,
-        Min = 1,
-        Max = 50,
-        Rounding = 1,
-        Callback = function(Value)
-            chestAmount = Value
-        end
-    })
-
-    -- Toggle to buy selected chests
-    local autobuyChests = Tabs.Sell:AddToggle('autobuyChests', {
-        Title = 'Auto Buy Chests', 
-        Default = false
-    })
-
-    autobuyChests:OnChanged(function()
-        while Options.autobuyChests.Value do
-            for _, chestName in pairs(selectedChests) do
-                local args = {
-                    chestName,
-                    chestAmount
-                }
-                game:GetService('ReplicatedStorage'):WaitForChild('Systems'):WaitForChild('ChestShop'):WaitForChild('OpenChest'):InvokeServer(unpack(args))
-            end
-            task.wait(0.1)
-        end
-    end)
-
-    -- Ensure toggle is off by default
-    Options.autobuyChests:SetValue(false)
-
-    local autoopenpetchest = Tabs.Main:AddToggle(
-        'autoopenpetchest',
-        { Title = 'Open All Pet Chest', Default = false }
-    )
-
-    autoopenpetchest:OnChanged(function()
-        while Options.autoopenpetchest.Value do
-            local inventory = game
-                :GetService('Players').LocalPlayer
-                :WaitForChild('PlayerGui')
-                :FindFirstChild('Profile')
-                :FindFirstChild('Inventory')
-            if inventory then
-                for _, petchest in pairs(inventory:GetChildren()) do
-                    local count = petchest:FindFirstChild('Count')
-                    if count then
-                        local args = {
-                            petchest,
-                            1,
-                        }
-                        game
-                            :GetService('ReplicatedStorage')
-                            :WaitForChild('Systems')
-                            :WaitForChild('Pets')
-                            :WaitForChild('OpenPetChest')
-                            :FireServer(unpack(args))
-                    end
-                end
-            end
-            task.wait(0.1)
-        end
-    end)
-
-    Options.autoopenpetchest:SetValue(false)
-end
-
--- Addons:
--- SaveManager (Allows you to have a configuration system)
--- InterfaceManager (Allows you to have a interface managment system)
-
--- Hand the library over to our managers
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-
--- Ignore keys that are used by ThemeManager.
--- (we dont want configs to save themes, do we?)
-
-SaveManager:IgnoreThemeSettings()
--- You can add indexes of elements the save manager should ignore
-SaveManager:SetIgnoreIndexes({})
-
--- use case for doing it this way:
--- a script hub could have themes in a global folder
--- and game configs in a separate folder per game
-InterfaceManager:SetFolder('FluentScriptHub')
-SaveManager:SetFolder('FluentScriptHub/Dungeon Heroes')
-
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
-
-Window:SelectTab(1)
-
-Fluent:Notify({
-    Title = 'Cuacker Hub',
-    Content = 'The script has been loaded.',
-    Duration = 3,
-})
-task.wait(3)
-Fluent:Notify({
-    Title = 'Cuacker Hub',
-    Content = 'Mutual farm me, discord: cuacker.',
-    Duration = 8,
-})
--- You can use the SaveManager:LoadAutoloadConfig() to load a config
--- which has been marked to be one that auto loads!
-SaveManager:LoadAutoloadConfig(), '%1') -- Trim whitespace
-                if trimmedValue ~= '' and not table.find(customPetNames, trimmedValue) then
-                    table.insert(customPetNames, trimmedValue)
-                    refreshPetList()
+                if #petNames > 0 then
+                    print("Your current pets: " .. table.concat(petNames, ', '))
                     Fluent:Notify({
-                        Title = 'Custom Pet Added',
-                        Content = 'Added "' .. trimmedValue .. '" to pet list',
-                        Duration = 2,
+                        Title = 'Pet List',
+                        Content = 'Check console/output for your pet names!',
+                        Duration = 3,
                     })
-                    -- Clear the input field
-                    customPetInput:SetValue('')
-                end
-            end
-        end
-    })
-
-    -- Button to clear custom pet names
-    Tabs.Sell:AddButton({
-        Title = 'Clear Custom Names',
-        Description = 'Remove all custom added pet names',
-        Callback = function()
-            customPetNames = {}
-            refreshPetList()
-            Fluent:Notify({
-                Title = 'Custom Names Cleared',
-                Content = 'All custom pet names have been removed',
-                Duration = 2,
-            })
-        end,
-    })
-
-    -- Dropdown to select specific pets to delete
-    local petSelectionDropdown = Tabs.Sell:AddDropdown('petSelectToDelete', {
-        Title = 'Select Pets to DELETE',
-        Values = getCurrentPets(),
-        Multi = true,
-        Default = {},
-    })
-
-    petSelectionDropdown:OnChanged(function(Value)
-        local selected = {}
-        for petInfo, selectedState in pairs(Value) do
-            if selectedState then
-                table.insert(selected, petInfo)
-            end
-        end
-        selectedPetsToDelete = selected
-    end)
-
-    -- Button to refresh pet list
-    Tabs.Sell:AddButton({
-        Title = 'Refresh Pet List',
-        Description = 'Scan pets folder and update the list',
-        Callback = function()
-            refreshPetList()
-            Fluent:Notify({
-                Title = 'Pet List Updated',
-                Content = 'Pet list has been refreshed!',
-                Duration = 2,
-            })
-        end,
-    })
-
-    -- Autosell pets by rarity toggle
-    local autosellallpet = Tabs.Sell:AddToggle('autosellallpet', {
-        Title = 'Sell Pets by Rarity',
-        Default = false,
-    })
-
-    autosellallpet:OnChanged(function()
-        while Options.autosellallpet.Value do
-            local player = game:GetService('Players').LocalPlayer
-            local petsFolder = player
-                :WaitForChild('PlayerGui')
-                :FindFirstChild('Profile')
-                :FindFirstChild('Pets')
-
-            if petsFolder then
-                local petsToSell = {}
-
-                for _, pet in pairs(petsFolder:GetChildren()) do
-                    local rarity = pet:FindFirstChild('Rarity')
-                    if
-                        rarity
-                        and table.find(selectrarityPets, tostring(rarity.Value))
-                    then
-                        table.insert(petsToSell, pet)
-                    end
-                end
-
-                if #petsToSell > 0 then
-                    local args = {
-                        petsToSell,
-                        {},
-                    }
-
-                    game
-                        :GetService('ReplicatedStorage')
-                        :WaitForChild('Systems')
-                        :WaitForChild('ItemSelling')
-                        :WaitForChild('SellItem')
-                        :FireServer(unpack(args))
-                end
-            end
-
-            task.wait(0.1)
-        end
-    end)
-
-    -- Manual pet deletion toggle
-    local deleteSelectedPets = Tabs.Sell:AddToggle('deleteSelectedPets', {
-        Title = 'Delete Selected Pets',
-        Description = 'Only deletes pets you manually selected above',
-        Default = false,
-    })
-
-    deleteSelectedPets:OnChanged(function()
-        while Options.deleteSelectedPets.Value do
-            local player = game:GetService('Players').LocalPlayer
-            local petsFolder = player:WaitForChild('PlayerGui'):FindFirstChild('Profile'):FindFirstChild('Pets')
-            
-            if petsFolder and #selectedPetsToDelete > 0 then
-                local petsToSell = {}
-                
-                for _, pet in pairs(petsFolder:GetChildren()) do
-                    local rarity = pet:FindFirstChild('Rarity')
-                    local rarityText = 'Unknown'
-                    if rarity then
-                        local rarityValue = tostring(rarity.Value)
-                        for name, value in pairs(rarityMap) do
-                            if value == rarityValue then
-                                rarityText = name
-                                break
-                            end
-                        end
-                    end
-                    local petInfo = pet.Name .. ' (' .. rarityText .. ')'
-                    
-                    -- Check if this pet is in the selected deletion list
-                    if table.find(selectedPetsToDelete, petInfo) then
-                        table.insert(petsToSell, pet)
-                    end
-                end
-                
-                if #petsToSell > 0 then
-                    local args = {
-                        petsToSell,
-                        {},
-                    }
-                    game:GetService('ReplicatedStorage')
-                        :WaitForChild('Systems')
-                        :WaitForChild('ItemSelling')
-                        :WaitForChild('SellItem')
-                        :FireServer(unpack(args))
-                end
-            end
-            
-            task.wait(0.1)
-        end
-    end)
-
-    -- Ensure toggles are off by default
-    Options.autosellallpet:SetValue(false)
-    Options.deleteSelectedPets:SetValue(false)
-
-    -- Add Section for Chest Buying
-    Tabs.Sell:AddSection('Chest Buying')
-
-    -- Chest names for the dropdown
-    local chestNames = {
-        'FrozenSkillChest', 'MushroomSkillChest', 'GoldenSkillChest', 
-        'MossySkillChest', 'SandySkillChest', 'CaveSkillChest', 
-        'AstralSkillChest', 'BurningSkillChest', 'DesertSkillChest', 'SkillChest'
-    }
-
-    -- Selected chests storage
-    local selectedChests = {}
-
-    -- Multi-select dropdown for chests
-    local chestmulti = Tabs.Sell:AddDropdown('chestmulti', {
-        Title = 'Select Chests to Buy',
-        Values = chestNames,
-        Multi = true,
-        Default = { 'SkillChest' },
-    })
-
-    -- Initialize selected chests with default value
-    chestmulti:OnChanged(function(Value)
-        local chestValues = {}
-        for ChestName, State in next, Value do
-            if State then
-                table.insert(chestValues, ChestName)
-            end
-        end
-        selectedChests = chestValues
-    end)
-
-    -- Amount slider for chests
-    local chestAmount = 5
-    local chestAmountSlider = Tabs.Sell:AddSlider('chestAmount', {
-        Title = 'Chest Amount',
-        Description = 'How many chests to buy at once',
-        Default = 5,
-        Min = 1,
-        Max = 50,
-        Rounding = 1,
-        Callback = function(Value)
-            chestAmount = Value
-        end
-    })
-
-    -- Toggle to buy selected chests
-    local autobuyChests = Tabs.Sell:AddToggle('autobuyChests', {
-        Title = 'Auto Buy Chests', 
-        Default = false
-    })
-
-    autobuyChests:OnChanged(function()
-        while Options.autobuyChests.Value do
-            for _, chestName in pairs(selectedChests) do
-                local args = {
-                    chestName,
-                    chestAmount
-                }
-                game:GetService('ReplicatedStorage'):WaitForChild('Systems'):WaitForChild('ChestShop'):WaitForChild('OpenChest'):InvokeServer(unpack(args))
-            end
-            task.wait(0.1)
-        end
-    end)
-
-    -- Ensure toggle is off by default
-    Options.autobuyChests:SetValue(false)
-
-    local autoopenpetchest = Tabs.Main:AddToggle(
-        'autoopenpetchest',
-        { Title = 'Open All Pet Chest', Default = false }
-    )
-
-    autoopenpetchest:OnChanged(function()
-        while Options.autoopenpetchest.Value do
-            local inventory = game
-                :GetService('Players').LocalPlayer
-                :WaitForChild('PlayerGui')
-                :FindFirstChild('Profile')
-                :FindFirstChild('Inventory')
-            if inventory then
-                for _, petchest in pairs(inventory:GetChildren()) do
-                    local count = petchest:FindFirstChild('Count')
-                    if count then
-                        local args = {
-                            petchest,
-                            1,
-                        }
-                        game
-                            :GetService('ReplicatedStorage')
-                            :WaitForChild('Systems')
-                            :WaitForChild('Pets')
-                            :WaitForChild('OpenPetChest')
-                            :FireServer(unpack(args))
-                    end
-                end
-            end
-            task.wait(0.1)
-        end
-    end)
-
-    Options.autoopenpetchest:SetValue(false)
-end
-
--- Addons:
--- SaveManager (Allows you to have a configuration system)
--- InterfaceManager (Allows you to have a interface managment system)
-
--- Hand the library over to our managers
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-
--- Ignore keys that are used by ThemeManager.
--- (we dont want configs to save themes, do we?)
-
-SaveManager:IgnoreThemeSettings()
--- You can add indexes of elements the save manager should ignore
-SaveManager:SetIgnoreIndexes({})
-
--- use case for doing it this way:
--- a script hub could have themes in a global folder
--- and game configs in a separate folder per game
-InterfaceManager:SetFolder('FluentScriptHub')
-SaveManager:SetFolder('FluentScriptHub/Dungeon Heroes')
-
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
-
-Window:SelectTab(1)
-
-Fluent:Notify({
-    Title = 'Cuacker Hub',
-    Content = 'The script has been loaded.',
-    Duration = 3,
-})
-task.wait(3)
-Fluent:Notify({
-    Title = 'Cuacker Hub',
-    Content = 'Mutual farm me, discord: cuacker.',
-    Duration = 8,
-})
--- You can use the SaveManager:LoadAutoloadConfig() to load a config
--- which has been marked to be one that auto loads!
-SaveManager:LoadAutoloadConfig()) and pet.Name == string.gsub(selectedPet, ' %(Custom%)
-
-    -- Ensure toggles are off by default
-    Options.autosellallpet:SetValue(false)
-    Options.deleteSelectedPets:SetValue(false)
-
-    -- Add Section for Chest Buying
-    Tabs.Sell:AddSection('Chest Buying')
-
-    -- Chest names for the dropdown
-    local chestNames = {
-        'FrozenSkillChest', 'MushroomSkillChest', 'GoldenSkillChest', 
-        'MossySkillChest', 'SandySkillChest', 'CaveSkillChest', 
-        'AstralSkillChest', 'BurningSkillChest', 'DesertSkillChest', 'SkillChest'
-    }
-
-    -- Selected chests storage
-    local selectedChests = {}
-
-    -- Multi-select dropdown for chests
-    local chestmulti = Tabs.Sell:AddDropdown('chestmulti', {
-        Title = 'Select Chests to Buy',
-        Values = chestNames,
-        Multi = true,
-        Default = { 'SkillChest' },
-    })
-
-    -- Initialize selected chests with default value
-    chestmulti:OnChanged(function(Value)
-        local chestValues = {}
-        for ChestName, State in next, Value do
-            if State then
-                table.insert(chestValues, ChestName)
-            end
-        end
-        selectedChests = chestValues
-    end)
-
-    -- Amount slider for chests
-    local chestAmount = 5
-    local chestAmountSlider = Tabs.Sell:AddSlider('chestAmount', {
-        Title = 'Chest Amount',
-        Description = 'How many chests to buy at once',
-        Default = 5,
-        Min = 1,
-        Max = 50,
-        Rounding = 1,
-        Callback = function(Value)
-            chestAmount = Value
-        end
-    })
-
-    -- Toggle to buy selected chests
-    local autobuyChests = Tabs.Sell:AddToggle('autobuyChests', {
-        Title = 'Auto Buy Chests', 
-        Default = false
-    })
-
-    autobuyChests:OnChanged(function()
-        while Options.autobuyChests.Value do
-            for _, chestName in pairs(selectedChests) do
-                local args = {
-                    chestName,
-                    chestAmount
-                }
-                game:GetService('ReplicatedStorage'):WaitForChild('Systems'):WaitForChild('ChestShop'):WaitForChild('OpenChest'):InvokeServer(unpack(args))
-            end
-            task.wait(0.1)
-        end
-    end)
-
-    -- Ensure toggle is off by default
-    Options.autobuyChests:SetValue(false)
-
-    local autoopenpetchest = Tabs.Main:AddToggle(
-        'autoopenpetchest',
-        { Title = 'Open All Pet Chest', Default = false }
-    )
-
-    autoopenpetchest:OnChanged(function()
-        while Options.autoopenpetchest.Value do
-            local inventory = game
-                :GetService('Players').LocalPlayer
-                :WaitForChild('PlayerGui')
-                :FindFirstChild('Profile')
-                :FindFirstChild('Inventory')
-            if inventory then
-                for _, petchest in pairs(inventory:GetChildren()) do
-                    local count = petchest:FindFirstChild('Count')
-                    if count then
-                        local args = {
-                            petchest,
-                            1,
-                        }
-                        game
-                            :GetService('ReplicatedStorage')
-                            :WaitForChild('Systems')
-                            :WaitForChild('Pets')
-                            :WaitForChild('OpenPetChest')
-                            :FireServer(unpack(args))
-                    end
-                end
-            end
-            task.wait(0.1)
-        end
-    end)
-
-    Options.autoopenpetchest:SetValue(false)
-end
-
--- Addons:
--- SaveManager (Allows you to have a configuration system)
--- InterfaceManager (Allows you to have a interface managment system)
-
--- Hand the library over to our managers
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-
--- Ignore keys that are used by ThemeManager.
--- (we dont want configs to save themes, do we?)
-
-SaveManager:IgnoreThemeSettings()
--- You can add indexes of elements the save manager should ignore
-SaveManager:SetIgnoreIndexes({})
-
--- use case for doing it this way:
--- a script hub could have themes in a global folder
--- and game configs in a separate folder per game
-InterfaceManager:SetFolder('FluentScriptHub')
-SaveManager:SetFolder('FluentScriptHub/Dungeon Heroes')
-
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
-
-Window:SelectTab(1)
-
-Fluent:Notify({
-    Title = 'Cuacker Hub',
-    Content = 'The script has been loaded.',
-    Duration = 3,
-})
-task.wait(3)
-Fluent:Notify({
-    Title = 'Cuacker Hub',
-    Content = 'Mutual farm me, discord: cuacker.',
-    Duration = 8,
-})
--- You can use the SaveManager:LoadAutoloadConfig() to load a config
--- which has been marked to be one that auto loads!
-SaveManager:LoadAutoloadConfig(), '%1') -- Trim whitespace
-                if trimmedValue ~= '' and not table.find(customPetNames, trimmedValue) then
-                    table.insert(customPetNames, trimmedValue)
-                    refreshPetList()
+                else
                     Fluent:Notify({
-                        Title = 'Custom Pet Added',
-                        Content = 'Added "' .. trimmedValue .. '" to pet list',
-                        Duration = 2,
+                        Title = 'No Pets',
+                        Content = 'No pets found in your inventory',
+                        Duration = 3,
                     })
-                    -- Clear the input field
-                    customPetInput:SetValue('')
                 end
             end
-        end
-    })
-
-    -- Button to clear custom pet names
-    Tabs.Sell:AddButton({
-        Title = 'Clear Custom Names',
-        Description = 'Remove all custom added pet names',
-        Callback = function()
-            customPetNames = {}
-            refreshPetList()
-            Fluent:Notify({
-                Title = 'Custom Names Cleared',
-                Content = 'All custom pet names have been removed',
-                Duration = 2,
-            })
         end,
     })
 
-    -- Dropdown to select specific pets to delete
-    local petSelectionDropdown = Tabs.Sell:AddDropdown('petSelectToDelete', {
-        Title = 'Select Pets to DELETE',
-        Values = getCurrentPets(),
-        Multi = true,
-        Default = {},
-    })
-
-    petSelectionDropdown:OnChanged(function(Value)
-        local selected = {}
-        for petInfo, selectedState in pairs(Value) do
-            if selectedState then
-                table.insert(selected, petInfo)
-            end
-        end
-        selectedPetsToDelete = selected
-    end)
-
-    -- Button to refresh pet list
-    Tabs.Sell:AddButton({
-        Title = 'Refresh Pet List',
-        Description = 'Scan pets folder and update the list',
-        Callback = function()
-            refreshPetList()
-            Fluent:Notify({
-                Title = 'Pet List Updated',
-                Content = 'Pet list has been refreshed!',
-                Duration = 2,
-            })
-        end,
-    })
-
-    -- Autosell pets by rarity toggle
-    local autosellallpet = Tabs.Sell:AddToggle('autosellallpet', {
-        Title = 'Sell Pets by Rarity',
+    -- Toggle for auto delete pets (keep only specified ones)
+    local autoDeletePets = Tabs.Sell:AddToggle('autoDeletePets', {
+        Title = 'Delete Pets (Keep Specified)',
+        Description = 'Deletes all pets EXCEPT the ones you specified to keep',
         Default = false,
     })
 
-    autosellallpet:OnChanged(function()
-        while Options.autosellallpet.Value do
+    autoDeletePets:OnChanged(function()
+        while Options.autoDeletePets.Value do
             local player = game:GetService('Players').LocalPlayer
             local petsFolder = player
                 :WaitForChild('PlayerGui')
@@ -1505,678 +857,33 @@ SaveManager:LoadAutoloadConfig(), '%1') -- Trim whitespace
                 :FindFirstChild('Pets')
 
             if petsFolder then
-                local petsToSell = {}
-
+                local petsToDelete = {}
+                
                 for _, pet in pairs(petsFolder:GetChildren()) do
-                    local rarity = pet:FindFirstChild('Rarity')
-                    if
-                        rarity
-                        and table.find(selectrarityPets, tostring(rarity.Value))
-                    then
-                        table.insert(petsToSell, pet)
+                    if not shouldKeepPet(pet.Name) then
+                        table.insert(petsToDelete, pet)
                     end
                 end
 
-                if #petsToSell > 0 then
-                    local args = {
-                        petsToSell,
-                        {},
-                    }
-
+                if #petsToDelete > 0 then
+                    local args = { petsToDelete, {} }
                     game
                         :GetService('ReplicatedStorage')
                         :WaitForChild('Systems')
                         :WaitForChild('ItemSelling')
                         :WaitForChild('SellItem')
                         :FireServer(unpack(args))
-                end
-            end
-
-            task.wait(0.1)
-        end
-    end)
-
-    -- Manual pet deletion toggle
-    local deleteSelectedPets = Tabs.Sell:AddToggle('deleteSelectedPets', {
-        Title = 'Delete Selected Pets',
-        Description = 'Only deletes pets you manually selected above',
-        Default = false,
-    })
-
-    deleteSelectedPets:OnChanged(function()
-        while Options.deleteSelectedPets.Value do
-            local player = game:GetService('Players').LocalPlayer
-            local petsFolder = player:WaitForChild('PlayerGui'):FindFirstChild('Profile'):FindFirstChild('Pets')
-            
-            if petsFolder and #selectedPetsToDelete > 0 then
-                local petsToSell = {}
-                
-                for _, pet in pairs(petsFolder:GetChildren()) do
-                    local rarity = pet:FindFirstChild('Rarity')
-                    local rarityText = 'Unknown'
-                    if rarity then
-                        local rarityValue = tostring(rarity.Value)
-                        for name, value in pairs(rarityMap) do
-                            if value == rarityValue then
-                                rarityText = name
-                                break
-                            end
-                        end
-                    end
-                    local petInfo = pet.Name .. ' (' .. rarityText .. ')'
                     
-                    -- Check if this pet is in the selected deletion list
-                    if table.find(selectedPetsToDelete, petInfo) then
-                        table.insert(petsToSell, pet)
-                    end
-                end
-                
-                if #petsToSell > 0 then
-                    local args = {
-                        petsToSell,
-                        {},
-                    }
-                    game:GetService('ReplicatedStorage')
-                        :WaitForChild('Systems')
-                        :WaitForChild('ItemSelling')
-                        :WaitForChild('SellItem')
-                        :FireServer(unpack(args))
+                    print("Deleted " .. #petsToDelete .. " pets, kept pets containing: " .. petsToKeep)
                 end
             end
-            
-            task.wait(0.1)
-        end
-    end)
 
-    -- Ensure toggles are off by default
-    Options.autosellallpet:SetValue(false)
-    Options.deleteSelectedPets:SetValue(false)
-
-    -- Add Section for Chest Buying
-    Tabs.Sell:AddSection('Chest Buying')
-
-    -- Chest names for the dropdown
-    local chestNames = {
-        'FrozenSkillChest', 'MushroomSkillChest', 'GoldenSkillChest', 
-        'MossySkillChest', 'SandySkillChest', 'CaveSkillChest', 
-        'AstralSkillChest', 'BurningSkillChest', 'DesertSkillChest', 'SkillChest'
-    }
-
-    -- Selected chests storage
-    local selectedChests = {}
-
-    -- Multi-select dropdown for chests
-    local chestmulti = Tabs.Sell:AddDropdown('chestmulti', {
-        Title = 'Select Chests to Buy',
-        Values = chestNames,
-        Multi = true,
-        Default = { 'SkillChest' },
-    })
-
-    -- Initialize selected chests with default value
-    chestmulti:OnChanged(function(Value)
-        local chestValues = {}
-        for ChestName, State in next, Value do
-            if State then
-                table.insert(chestValues, ChestName)
-            end
-        end
-        selectedChests = chestValues
-    end)
-
-    -- Amount slider for chests
-    local chestAmount = 5
-    local chestAmountSlider = Tabs.Sell:AddSlider('chestAmount', {
-        Title = 'Chest Amount',
-        Description = 'How many chests to buy at once',
-        Default = 5,
-        Min = 1,
-        Max = 50,
-        Rounding = 1,
-        Callback = function(Value)
-            chestAmount = Value
-        end
-    })
-
-    -- Toggle to buy selected chests
-    local autobuyChests = Tabs.Sell:AddToggle('autobuyChests', {
-        Title = 'Auto Buy Chests', 
-        Default = false
-    })
-
-    autobuyChests:OnChanged(function()
-        while Options.autobuyChests.Value do
-            for _, chestName in pairs(selectedChests) do
-                local args = {
-                    chestName,
-                    chestAmount
-                }
-                game:GetService('ReplicatedStorage'):WaitForChild('Systems'):WaitForChild('ChestShop'):WaitForChild('OpenChest'):InvokeServer(unpack(args))
-            end
-            task.wait(0.1)
+            task.wait(1) -- Wait 1 second between checks
         end
     end)
 
     -- Ensure toggle is off by default
-    Options.autobuyChests:SetValue(false)
-
-    local autoopenpetchest = Tabs.Main:AddToggle(
-        'autoopenpetchest',
-        { Title = 'Open All Pet Chest', Default = false }
-    )
-
-    autoopenpetchest:OnChanged(function()
-        while Options.autoopenpetchest.Value do
-            local inventory = game
-                :GetService('Players').LocalPlayer
-                :WaitForChild('PlayerGui')
-                :FindFirstChild('Profile')
-                :FindFirstChild('Inventory')
-            if inventory then
-                for _, petchest in pairs(inventory:GetChildren()) do
-                    local count = petchest:FindFirstChild('Count')
-                    if count then
-                        local args = {
-                            petchest,
-                            1,
-                        }
-                        game
-                            :GetService('ReplicatedStorage')
-                            :WaitForChild('Systems')
-                            :WaitForChild('Pets')
-                            :WaitForChild('OpenPetChest')
-                            :FireServer(unpack(args))
-                    end
-                end
-            end
-            task.wait(0.1)
-        end
-    end)
-
-    Options.autoopenpetchest:SetValue(false)
-end
-
--- Addons:
--- SaveManager (Allows you to have a configuration system)
--- InterfaceManager (Allows you to have a interface managment system)
-
--- Hand the library over to our managers
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-
--- Ignore keys that are used by ThemeManager.
--- (we dont want configs to save themes, do we?)
-
-SaveManager:IgnoreThemeSettings()
--- You can add indexes of elements the save manager should ignore
-SaveManager:SetIgnoreIndexes({})
-
--- use case for doing it this way:
--- a script hub could have themes in a global folder
--- and game configs in a separate folder per game
-InterfaceManager:SetFolder('FluentScriptHub')
-SaveManager:SetFolder('FluentScriptHub/Dungeon Heroes')
-
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
-
-Window:SelectTab(1)
-
-Fluent:Notify({
-    Title = 'Cuacker Hub',
-    Content = 'The script has been loaded.',
-    Duration = 3,
-})
-task.wait(3)
-Fluent:Notify({
-    Title = 'Cuacker Hub',
-    Content = 'Mutual farm me, discord: cuacker.',
-    Duration = 8,
-})
--- You can use the SaveManager:LoadAutoloadConfig() to load a config
--- which has been marked to be one that auto loads!
-SaveManager:LoadAutoloadConfig(), '')) then
-                            shouldDelete = true
-                            break
-                        end
-                    end
-                    
-                    if shouldDelete then
-                        table.insert(petsToSell, pet)
-                    end
-                end
-                
-                if #petsToSell > 0 then
-                    local args = {
-                        petsToSell,
-                        {},
-                    }
-                    game:GetService('ReplicatedStorage')
-                        :WaitForChild('Systems')
-                        :WaitForChild('ItemSelling')
-                        :WaitForChild('SellItem')
-                        :FireServer(unpack(args))
-                end
-            end
-            
-            task.wait(0.1)
-        end
-    end)
-
-    -- Ensure toggles are off by default
-    Options.autosellallpet:SetValue(false)
-    Options.deleteSelectedPets:SetValue(false)
-
-    -- Add Section for Chest Buying
-    Tabs.Sell:AddSection('Chest Buying')
-
-    -- Chest names for the dropdown
-    local chestNames = {
-        'FrozenSkillChest', 'MushroomSkillChest', 'GoldenSkillChest', 
-        'MossySkillChest', 'SandySkillChest', 'CaveSkillChest', 
-        'AstralSkillChest', 'BurningSkillChest', 'DesertSkillChest', 'SkillChest'
-    }
-
-    -- Selected chests storage
-    local selectedChests = {}
-
-    -- Multi-select dropdown for chests
-    local chestmulti = Tabs.Sell:AddDropdown('chestmulti', {
-        Title = 'Select Chests to Buy',
-        Values = chestNames,
-        Multi = true,
-        Default = { 'SkillChest' },
-    })
-
-    -- Initialize selected chests with default value
-    chestmulti:OnChanged(function(Value)
-        local chestValues = {}
-        for ChestName, State in next, Value do
-            if State then
-                table.insert(chestValues, ChestName)
-            end
-        end
-        selectedChests = chestValues
-    end)
-
-    -- Amount slider for chests
-    local chestAmount = 5
-    local chestAmountSlider = Tabs.Sell:AddSlider('chestAmount', {
-        Title = 'Chest Amount',
-        Description = 'How many chests to buy at once',
-        Default = 5,
-        Min = 1,
-        Max = 50,
-        Rounding = 1,
-        Callback = function(Value)
-            chestAmount = Value
-        end
-    })
-
-    -- Toggle to buy selected chests
-    local autobuyChests = Tabs.Sell:AddToggle('autobuyChests', {
-        Title = 'Auto Buy Chests', 
-        Default = false
-    })
-
-    autobuyChests:OnChanged(function()
-        while Options.autobuyChests.Value do
-            for _, chestName in pairs(selectedChests) do
-                local args = {
-                    chestName,
-                    chestAmount
-                }
-                game:GetService('ReplicatedStorage'):WaitForChild('Systems'):WaitForChild('ChestShop'):WaitForChild('OpenChest'):InvokeServer(unpack(args))
-            end
-            task.wait(0.1)
-        end
-    end)
-
-    -- Ensure toggle is off by default
-    Options.autobuyChests:SetValue(false)
-
-    local autoopenpetchest = Tabs.Main:AddToggle(
-        'autoopenpetchest',
-        { Title = 'Open All Pet Chest', Default = false }
-    )
-
-    autoopenpetchest:OnChanged(function()
-        while Options.autoopenpetchest.Value do
-            local inventory = game
-                :GetService('Players').LocalPlayer
-                :WaitForChild('PlayerGui')
-                :FindFirstChild('Profile')
-                :FindFirstChild('Inventory')
-            if inventory then
-                for _, petchest in pairs(inventory:GetChildren()) do
-                    local count = petchest:FindFirstChild('Count')
-                    if count then
-                        local args = {
-                            petchest,
-                            1,
-                        }
-                        game
-                            :GetService('ReplicatedStorage')
-                            :WaitForChild('Systems')
-                            :WaitForChild('Pets')
-                            :WaitForChild('OpenPetChest')
-                            :FireServer(unpack(args))
-                    end
-                end
-            end
-            task.wait(0.1)
-        end
-    end)
-
-    Options.autoopenpetchest:SetValue(false)
-end
-
--- Addons:
--- SaveManager (Allows you to have a configuration system)
--- InterfaceManager (Allows you to have a interface managment system)
-
--- Hand the library over to our managers
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-
--- Ignore keys that are used by ThemeManager.
--- (we dont want configs to save themes, do we?)
-
-SaveManager:IgnoreThemeSettings()
--- You can add indexes of elements the save manager should ignore
-SaveManager:SetIgnoreIndexes({})
-
--- use case for doing it this way:
--- a script hub could have themes in a global folder
--- and game configs in a separate folder per game
-InterfaceManager:SetFolder('FluentScriptHub')
-SaveManager:SetFolder('FluentScriptHub/Dungeon Heroes')
-
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
-
-Window:SelectTab(1)
-
-Fluent:Notify({
-    Title = 'Cuacker Hub',
-    Content = 'The script has been loaded.',
-    Duration = 3,
-})
-task.wait(3)
-Fluent:Notify({
-    Title = 'Cuacker Hub',
-    Content = 'Mutual farm me, discord: cuacker.',
-    Duration = 8,
-})
--- You can use the SaveManager:LoadAutoloadConfig() to load a config
--- which has been marked to be one that auto loads!
-SaveManager:LoadAutoloadConfig(), '%1') -- Trim whitespace
-                if trimmedValue ~= '' and not table.find(customPetNames, trimmedValue) then
-                    table.insert(customPetNames, trimmedValue)
-                    refreshPetList()
-                    Fluent:Notify({
-                        Title = 'Custom Pet Added',
-                        Content = 'Added "' .. trimmedValue .. '" to pet list',
-                        Duration = 2,
-                    })
-                    -- Clear the input field
-                    customPetInput:SetValue('')
-                end
-            end
-        end
-    })
-
-    -- Button to clear custom pet names
-    Tabs.Sell:AddButton({
-        Title = 'Clear Custom Names',
-        Description = 'Remove all custom added pet names',
-        Callback = function()
-            customPetNames = {}
-            refreshPetList()
-            Fluent:Notify({
-                Title = 'Custom Names Cleared',
-                Content = 'All custom pet names have been removed',
-                Duration = 2,
-            })
-        end,
-    })
-
-    -- Dropdown to select specific pets to delete
-    local petSelectionDropdown = Tabs.Sell:AddDropdown('petSelectToDelete', {
-        Title = 'Select Pets to DELETE',
-        Values = getCurrentPets(),
-        Multi = true,
-        Default = {},
-    })
-
-    petSelectionDropdown:OnChanged(function(Value)
-        local selected = {}
-        for petInfo, selectedState in pairs(Value) do
-            if selectedState then
-                table.insert(selected, petInfo)
-            end
-        end
-        selectedPetsToDelete = selected
-    end)
-
-    -- Button to refresh pet list
-    Tabs.Sell:AddButton({
-        Title = 'Refresh Pet List',
-        Description = 'Scan pets folder and update the list',
-        Callback = function()
-            refreshPetList()
-            Fluent:Notify({
-                Title = 'Pet List Updated',
-                Content = 'Pet list has been refreshed!',
-                Duration = 2,
-            })
-        end,
-    })
-
-    -- Autosell pets by rarity toggle
-    local autosellallpet = Tabs.Sell:AddToggle('autosellallpet', {
-        Title = 'Sell Pets by Rarity',
-        Default = false,
-    })
-
-    autosellallpet:OnChanged(function()
-        while Options.autosellallpet.Value do
-            local player = game:GetService('Players').LocalPlayer
-            local petsFolder = player
-                :WaitForChild('PlayerGui')
-                :FindFirstChild('Profile')
-                :FindFirstChild('Pets')
-
-            if petsFolder then
-                local petsToSell = {}
-
-                for _, pet in pairs(petsFolder:GetChildren()) do
-                    local rarity = pet:FindFirstChild('Rarity')
-                    if
-                        rarity
-                        and table.find(selectrarityPets, tostring(rarity.Value))
-                    then
-                        table.insert(petsToSell, pet)
-                    end
-                end
-
-                if #petsToSell > 0 then
-                    local args = {
-                        petsToSell,
-                        {},
-                    }
-
-                    game
-                        :GetService('ReplicatedStorage')
-                        :WaitForChild('Systems')
-                        :WaitForChild('ItemSelling')
-                        :WaitForChild('SellItem')
-                        :FireServer(unpack(args))
-                end
-            end
-
-            task.wait(0.1)
-        end
-    end)
-
-    -- Manual pet deletion toggle
-    local deleteSelectedPets = Tabs.Sell:AddToggle('deleteSelectedPets', {
-        Title = 'Delete Selected Pets',
-        Description = 'Only deletes pets you manually selected above',
-        Default = false,
-    })
-
-    deleteSelectedPets:OnChanged(function()
-        while Options.deleteSelectedPets.Value do
-            local player = game:GetService('Players').LocalPlayer
-            local petsFolder = player:WaitForChild('PlayerGui'):FindFirstChild('Profile'):FindFirstChild('Pets')
-            
-            if petsFolder and #selectedPetsToDelete > 0 then
-                local petsToSell = {}
-                
-                for _, pet in pairs(petsFolder:GetChildren()) do
-                    local rarity = pet:FindFirstChild('Rarity')
-                    local rarityText = 'Unknown'
-                    if rarity then
-                        local rarityValue = tostring(rarity.Value)
-                        for name, value in pairs(rarityMap) do
-                            if value == rarityValue then
-                                rarityText = name
-                                break
-                            end
-                        end
-                    end
-                    local petInfo = pet.Name .. ' (' .. rarityText .. ')'
-                    
-                    -- Check if this pet is in the selected deletion list
-                    if table.find(selectedPetsToDelete, petInfo) then
-                        table.insert(petsToSell, pet)
-                    end
-                end
-                
-                if #petsToSell > 0 then
-                    local args = {
-                        petsToSell,
-                        {},
-                    }
-                    game:GetService('ReplicatedStorage')
-                        :WaitForChild('Systems')
-                        :WaitForChild('ItemSelling')
-                        :WaitForChild('SellItem')
-                        :FireServer(unpack(args))
-                end
-            end
-            
-            task.wait(0.1)
-        end
-    end)
-
-    -- Ensure toggles are off by default
-    Options.autosellallpet:SetValue(false)
-    Options.deleteSelectedPets:SetValue(false)
-
-    -- Add Section for Chest Buying
-    Tabs.Sell:AddSection('Chest Buying')
-
-    -- Chest names for the dropdown
-    local chestNames = {
-        'FrozenSkillChest', 'MushroomSkillChest', 'GoldenSkillChest', 
-        'MossySkillChest', 'SandySkillChest', 'CaveSkillChest', 
-        'AstralSkillChest', 'BurningSkillChest', 'DesertSkillChest', 'SkillChest'
-    }
-
-    -- Selected chests storage
-    local selectedChests = {}
-
-    -- Multi-select dropdown for chests
-    local chestmulti = Tabs.Sell:AddDropdown('chestmulti', {
-        Title = 'Select Chests to Buy',
-        Values = chestNames,
-        Multi = true,
-        Default = { 'SkillChest' },
-    })
-
-    -- Initialize selected chests with default value
-    chestmulti:OnChanged(function(Value)
-        local chestValues = {}
-        for ChestName, State in next, Value do
-            if State then
-                table.insert(chestValues, ChestName)
-            end
-        end
-        selectedChests = chestValues
-    end)
-
-    -- Amount slider for chests
-    local chestAmount = 5
-    local chestAmountSlider = Tabs.Sell:AddSlider('chestAmount', {
-        Title = 'Chest Amount',
-        Description = 'How many chests to buy at once',
-        Default = 5,
-        Min = 1,
-        Max = 50,
-        Rounding = 1,
-        Callback = function(Value)
-            chestAmount = Value
-        end
-    })
-
-    -- Toggle to buy selected chests
-    local autobuyChests = Tabs.Sell:AddToggle('autobuyChests', {
-        Title = 'Auto Buy Chests', 
-        Default = false
-    })
-
-    autobuyChests:OnChanged(function()
-        while Options.autobuyChests.Value do
-            for _, chestName in pairs(selectedChests) do
-                local args = {
-                    chestName,
-                    chestAmount
-                }
-                game:GetService('ReplicatedStorage'):WaitForChild('Systems'):WaitForChild('ChestShop'):WaitForChild('OpenChest'):InvokeServer(unpack(args))
-            end
-            task.wait(0.1)
-        end
-    end)
-
-    -- Ensure toggle is off by default
-    Options.autobuyChests:SetValue(false)
-
-    local autoopenpetchest = Tabs.Main:AddToggle(
-        'autoopenpetchest',
-        { Title = 'Open All Pet Chest', Default = false }
-    )
-
-    autoopenpetchest:OnChanged(function()
-        while Options.autoopenpetchest.Value do
-            local inventory = game
-                :GetService('Players').LocalPlayer
-                :WaitForChild('PlayerGui')
-                :FindFirstChild('Profile')
-                :FindFirstChild('Inventory')
-            if inventory then
-                for _, petchest in pairs(inventory:GetChildren()) do
-                    local count = petchest:FindFirstChild('Count')
-                    if count then
-                        local args = {
-                            petchest,
-                            1,
-                        }
-                        game
-                            :GetService('ReplicatedStorage')
-                            :WaitForChild('Systems')
-                            :WaitForChild('Pets')
-                            :WaitForChild('OpenPetChest')
-                            :FireServer(unpack(args))
-                    end
-                end
-            end
-            task.wait(0.1)
-        end
-    end)
-
-    Options.autoopenpetchest:SetValue(false)
+    Options.autoDeletePets:SetValue(false)
 end
 
 -- Addons:
