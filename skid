@@ -860,7 +860,8 @@ do
                 local petsToDelete = {}
                 
                 for _, pet in pairs(petsFolder:GetChildren()) do
-                    if not shouldKeepPet(pet.Name) then
+                    -- Check if pet is NOT protected by name AND doesn't have "Favorite" child
+                    if not shouldKeepPet(pet.Name) and not pet:FindFirstChild("Favorite") then
                         table.insert(petsToDelete, pet)
                     end
                 end
@@ -874,7 +875,7 @@ do
                         :WaitForChild('SellItem')
                         :FireServer(unpack(args))
                     
-                    print("Deleted " .. #petsToDelete .. " pets, kept pets containing: " .. petsToKeep)
+                    print("Deleted " .. #petsToDelete .. " pets, kept favorites and: YedrahPet, Yedrah")
                 end
             end
 
