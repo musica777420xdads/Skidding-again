@@ -244,7 +244,7 @@ do
                 local workspace = cloneref(game:GetService('Workspace'))
                 local enemies = workspace:FindFirstChild('Mobs')
 
-                local delay = 0.3
+                local delay = 0.5  -- Increased from 0.3 to 0.5
 
                 while killAuraRunning do
                     if enemies then
@@ -281,7 +281,7 @@ do
                 :WaitForChild('Dungeons')
                 :WaitForChild('TriggerStartDungeon')
                 :FireServer()
-            wait(0.1)
+            wait(0.2)  -- Increased from 0.1
         end
     end)
 
@@ -303,7 +303,7 @@ do
                 :WaitForChild('Dungeons')
                 :WaitForChild('SetExitChoice')
                 :FireServer(unpack(args))
-            wait(0.1)
+            wait(0.2)  -- Increased from 0.1
         end
     end)
 
@@ -356,7 +356,7 @@ do
             repeat
                 local mob = closest_mob()
                 if mob then
-                    task.wait(0.1)
+                    task.wait(0.2)  -- Increased from 0.1
                     local velocity_connection = run_service.Heartbeat:Connect(
                         function()
                             if
@@ -458,7 +458,7 @@ do
                     end
                 end
             end
-            task.wait(0.1)
+            task.wait(0.5)  -- Increased from 0.1
         end
     end)
 
