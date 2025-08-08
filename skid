@@ -244,7 +244,7 @@ do
                 local workspace = cloneref(game:GetService('Workspace'))
                 local enemies = workspace:FindFirstChild('Mobs')
 
-                local delay = 0.5  -- Increased from 0.3 to 0.5
+                local delay = 0.5 -- Increased from 0.3 to 0.5
 
                 while killAuraRunning do
                     if enemies then
@@ -281,7 +281,7 @@ do
                 :WaitForChild('Dungeons')
                 :WaitForChild('TriggerStartDungeon')
                 :FireServer()
-            wait(0.2)  -- Increased from 0.1
+            wait(0.2) -- Increased from 0.1
         end
     end)
 
@@ -303,7 +303,7 @@ do
                 :WaitForChild('Dungeons')
                 :WaitForChild('SetExitChoice')
                 :FireServer(unpack(args))
-            wait(0.2)  -- Increased from 0.1
+            wait(0.2) -- Increased from 0.1
         end
     end)
 
@@ -356,7 +356,7 @@ do
             repeat
                 local mob = closest_mob()
                 if mob then
-                    task.wait(0.2)  -- Increased from 0.1
+                    task.wait(0.2) -- Increased from 0.1
                     local velocity_connection = run_service.Heartbeat:Connect(
                         function()
                             if
@@ -431,71 +431,35 @@ do
     -- Raid Mode Button
     Tabs.Main:AddButton({
         Title = 'Start Raid Mode',
-        Description = 'Tweens to raid position (-130, 30, 905) with speed 50 every 0.2 seconds',
+        Description = 'Teleports to raid position (-130, 30, 905) every 0.2 seconds',
         Callback = function()
             local raidRunning = true
-            local platform
-            
-            -- Create platform like Infinite Yield
-            local function createPlatform()
-                platform = Instance.new("Part")
-                platform.Name = "RaidPlatform"
-                platform.Size = Vector3.new(8, 1, 8)
-                platform.Material = Enum.Material.Neon
-                platform.BrickColor = BrickColor.new("Bright blue")
-                platform.Anchored = true
-                platform.CanCollide = true
-                platform.Parent = workspace
-                return platform
-            end
-            
+
             Fluent:Notify({
                 Title = 'Raid Mode',
-                Content = 'Raid mode started! Platform created + Tweening every 0.2s',
+                Content = 'Raid mode started! Teleporting every 0.2s',
                 Duration = 3,
             })
-            
+
             task.spawn(function()
-                -- Create the platform
-                local plat = createPlatform()
-                
                 while raidRunning do
                     local player = game:GetService('Players').LocalPlayer
-                    if player.Character and player.Character:FindFirstChild('HumanoidRootPart') then
-                        local hrp = player.Character.HumanoidRootPart
-                        local targetPosition = Vector3.new(-130, 30, 905)
-                        local distance = (targetPosition - hrp.Position).Magnitude
-                        
-                        -- Move platform under player
-                        if plat then
-                            plat.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y - 4, hrp.Position.Z)
-                        end
-                        
-                        local tween = TweenService:Create(
-                            hrp,
-                            TweenInfo.new(
-                                distance / 250, -- Speed of 50
-                                Enum.EasingStyle.Linear,
-                                Enum.EasingDirection.Out
-                            ),
-                            {
-                                CFrame = CFrame.new(targetPosition)
-                            }
+                    if
+                        player.Character
+                        and player.Character:FindFirstChild('HumanoidRootPart')
+                    then
+                        player.Character.HumanoidRootPart.CFrame = CFrame.new(
+                            -130,
+                            30,
+                            905
                         )
-                        tween:Play()
                     end
                     task.wait(0.2)
                 end
-                
-                -- Clean up platform when raid mode stops
-                if plat then
-                    plat:Destroy()
-                end
             end)
-            
+
             -- Store the raid state globally so it can be stopped if needed
             _G.RaidModeRunning = raidRunning
-            _G.RaidPlatform = platform
         end,
     })
 
@@ -529,7 +493,7 @@ do
                     end
                 end
             end
-            task.wait(0.5)  -- Increased from 0.1
+            task.wait(0.5) -- Increased from 0.1
         end
     end)
 
@@ -721,13 +685,21 @@ do
                 for _, item in pairs(inventory:GetChildren()) do
                     local rarity = item:FindFirstChild('Rarity')
                     local itemName = item.Name:lower()
-                    
+
                     -- List of protected item names (gems/valuables)
                     local protectedItems = {
-                        'gem', 'ruby', 'emerald', 'amethyst', 'amathist',
-                        'diamond', 'sapphire', 'topaz', 'opal', 'crystal'
+                        'gem',
+                        'ruby',
+                        'emerald',
+                        'amethyst',
+                        'amathist',
+                        'diamond',
+                        'sapphire',
+                        'topaz',
+                        'opal',
+                        'crystal',
                     }
-                    
+
                     -- Check if item name contains any protected words
                     local isProtected = false
                     for _, protectedWord in pairs(protectedItems) do
@@ -736,7 +708,7 @@ do
                             break
                         end
                     end
-                    
+
                     -- Only sell if: matches rarity AND is not protected
                     if
                         rarity
@@ -850,7 +822,7 @@ do
     Tabs.Sell:AddSection('Pet Management')
 
     -- Input field for pets to keep
-    local petsToKeep = ""
+    local petsToKeep = ''
     local petsToKeepInput = Tabs.Sell:AddInput('petsToKeepInput', {
         Title = 'Pets to Keep (Names)',
         Description = 'Enter pet names to keep, separated by commas',
@@ -863,14 +835,14 @@ do
     petsToKeepInput:OnChanged(function(Value)
         petsToKeep = Value
     end)
-    
+
     -- Make sure the variable updates when config loads
     Options.petsToKeepInput = petsToKeepInput
 
     -- Function to check if pet should be kept
     local function shouldKeepPet(petName)
         -- Only keep pets with exactly these names
-        if petName == "YedrahPet" or petName == "Yedrah" then
+        if petName == 'YedrahPet' or petName == 'Yedrah' then
             return true
         else
             return false
@@ -893,9 +865,9 @@ do
                 for _, pet in pairs(petsFolder:GetChildren()) do
                     table.insert(petNames, pet.Name)
                 end
-                
+
                 if #petNames > 0 then
-                    print("Your current pets: " .. table.concat(petNames, ', '))
+                    print('Your current pets: ' .. table.concat(petNames, ', '))
                     Fluent:Notify({
                         Title = 'Pet List',
                         Content = 'Check console/output for your pet names!',
@@ -929,10 +901,13 @@ do
 
             if petsFolder then
                 local petsToDelete = {}
-                
+
                 for _, pet in pairs(petsFolder:GetChildren()) do
                     -- Check if pet is NOT protected by name AND doesn't have "Favorite" child
-                    if not shouldKeepPet(pet.Name) and not pet:FindFirstChild("Favorite") then
+                    if
+                        not shouldKeepPet(pet.Name)
+                        and not pet:FindFirstChild('Favorite')
+                    then
                         table.insert(petsToDelete, pet)
                     end
                 end
@@ -945,8 +920,12 @@ do
                         :WaitForChild('ItemSelling')
                         :WaitForChild('SellItem')
                         :FireServer(unpack(args))
-                    
-                    print("Deleted " .. #petsToDelete .. " pets, kept favorites and: YedrahPet, Yedrah")
+
+                    print(
+                        'Deleted '
+                            .. #petsToDelete
+                            .. ' pets, kept favorites and: YedrahPet, Yedrah'
+                    )
                 end
             end
 
