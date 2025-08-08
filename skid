@@ -431,13 +431,13 @@ do
     -- Raid Mode Button
     Tabs.Main:AddButton({
         Title = 'Start Raid Mode',
-        Description = 'Teleports to raid position (-130, 30, 905) every 0.2 seconds',
+        Description = 'Tweens to raid position (-130, 30, 905) with speed 50 every 0.2 seconds',
         Callback = function()
             local raidRunning = true
             
             Fluent:Notify({
                 Title = 'Raid Mode',
-                Content = 'Raid mode started! Teleporting every 0.2s',
+                Content = 'Raid mode started! Tweening every 0.2s',
                 Duration = 3,
             })
             
@@ -445,7 +445,22 @@ do
                 while raidRunning do
                     local player = game:GetService('Players').LocalPlayer
                     if player.Character and player.Character:FindFirstChild('HumanoidRootPart') then
-                        player.Character.HumanoidRootPart.CFrame = CFrame.new(-130, 30, 905)
+                        local hrp = player.Character.HumanoidRootPart
+                        local targetPosition = Vector3.new(-130, 30, 905)
+                        local distance = (targetPosition - hrp.Position).Magnitude
+                        
+                        local tween = TweenService:Create(
+                            hrp,
+                            TweenInfo.new(
+                                distance / 50, -- Speed of 50
+                                Enum.EasingStyle.Linear,
+                                Enum.EasingDirection.Out
+                            ),
+                            {
+                                CFrame = CFrame.new(targetPosition)
+                            }
+                        )
+                        tween:Play()
                     end
                     task.wait(0.2)
                 end
