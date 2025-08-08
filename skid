@@ -428,6 +428,34 @@ do
 
     Distance:SetValue(50)
 
+    -- Raid Mode Button
+    Tabs.Main:AddButton({
+        Title = 'Start Raid Mode',
+        Description = 'Teleports to raid position (-130, 30, 905) every 0.2 seconds',
+        Callback = function()
+            local raidRunning = true
+            
+            Fluent:Notify({
+                Title = 'Raid Mode',
+                Content = 'Raid mode started! Teleporting every 0.2s',
+                Duration = 3,
+            })
+            
+            task.spawn(function()
+                while raidRunning do
+                    local player = game:GetService('Players').LocalPlayer
+                    if player.Character and player.Character:FindFirstChild('HumanoidRootPart') then
+                        player.Character.HumanoidRootPart.CFrame = CFrame.new(-130, 30, 905)
+                    end
+                    task.wait(0.2)
+                end
+            end)
+            
+            -- Store the raid state globally so it can be stopped if needed
+            _G.RaidModeRunning = raidRunning
+        end,
+    })
+
     -- Auto open pet chest
     local autoopenpetchest = Tabs.Main:AddToggle(
         'autoopenpetchest',
