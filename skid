@@ -442,12 +442,25 @@ do
             })
             
             task.spawn(function()
+                local velocity_connection
+                
                 while raidRunning do
                     local player = game:GetService('Players').LocalPlayer
                     if player.Character and player.Character:FindFirstChild('HumanoidRootPart') then
                         local hrp = player.Character.HumanoidRootPart
                         local targetPosition = Vector3.new(-130, 30, 905)
                         local distance = (targetPosition - hrp.Position).Magnitude
+                        
+                        -- Stop velocity to prevent falling
+                        if velocity_connection then
+                            velocity_connection:Disconnect()
+                        end
+                        velocity_connection = game:GetService('RunService').Heartbeat:Connect(function()
+                            if hrp then
+                                hrp.AssemblyLinearVelocity = Vector3.zero
+                                hrp.AssemblyAngularVelocity = Vector3.zero
+                            end
+                        end)
                         
                         local tween = TweenService:Create(
                             hrp,
@@ -463,6 +476,11 @@ do
                         tween:Play()
                     end
                     task.wait(0.2)
+                end
+                
+                -- Clean up velocity connection when raid mode stops
+                if velocity_connection then
+                    velocity_connection:Disconnect()
                 end
             end)
             
