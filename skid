@@ -434,15 +434,30 @@ do
         Description = 'Tweens to raid position (-130, 30, 905) with speed 50 every 0.2 seconds',
         Callback = function()
             local raidRunning = true
+            local platform
+            
+            -- Create platform like Infinite Yield
+            local function createPlatform()
+                platform = Instance.new("Part")
+                platform.Name = "RaidPlatform"
+                platform.Size = Vector3.new(8, 1, 8)
+                platform.Material = Enum.Material.Neon
+                platform.BrickColor = BrickColor.new("Bright blue")
+                platform.Anchored = true
+                platform.CanCollide = true
+                platform.Parent = workspace
+                return platform
+            end
             
             Fluent:Notify({
                 Title = 'Raid Mode',
-                Content = 'Raid mode started! Tweening every 0.2s',
+                Content = 'Raid mode started! Platform created + Tweening every 0.2s',
                 Duration = 3,
             })
             
             task.spawn(function()
-                local velocity_connection
+                -- Create the platform
+                local plat = createPlatform()
                 
                 while raidRunning do
                     local player = game:GetService('Players').LocalPlayer
@@ -451,16 +466,10 @@ do
                         local targetPosition = Vector3.new(-130, 30, 905)
                         local distance = (targetPosition - hrp.Position).Magnitude
                         
-                        -- Stop velocity to prevent falling
-                        if velocity_connection then
-                            velocity_connection:Disconnect()
+                        -- Move platform under player
+                        if plat then
+                            plat.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y - 4, hrp.Position.Z)
                         end
-                        velocity_connection = game:GetService('RunService').Heartbeat:Connect(function()
-                            if hrp then
-                                hrp.AssemblyLinearVelocity = Vector3.zero
-                                hrp.AssemblyAngularVelocity = Vector3.zero
-                            end
-                        end)
                         
                         local tween = TweenService:Create(
                             hrp,
@@ -478,14 +487,15 @@ do
                     task.wait(0.2)
                 end
                 
-                -- Clean up velocity connection when raid mode stops
-                if velocity_connection then
-                    velocity_connection:Disconnect()
+                -- Clean up platform when raid mode stops
+                if plat then
+                    plat:Destroy()
                 end
             end)
             
             -- Store the raid state globally so it can be stopped if needed
             _G.RaidModeRunning = raidRunning
+            _G.RaidPlatform = platform
         end,
     })
 
