@@ -105,7 +105,7 @@ end
 
 local Fluent = loadstring(
     game:HttpGet(
-        'https://github.com/ActualMasterOogway/Fluent-Renewed/releases/latest/download/Fluent.luau'
+        'https://gist.githubusercontent.com/musica777420xdads/e1030f0810df1810b1abe218e3e0f7e2/raw/6fad9ffd713d5a186ccd90d6fc12154bc6a86ad1/Fluent.luau'
     )
 )()
 local SaveManager = loadstring(
