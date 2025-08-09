@@ -303,7 +303,7 @@ do
                 :WaitForChild('Dungeons')
                 :WaitForChild('SetExitChoice')
                 :FireServer(unpack(args))
-            wait(4) -- Increased from 0.1
+            wait(9) -- Increased from 0.1
         end
     end)
 
