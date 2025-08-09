@@ -244,7 +244,7 @@ do
                 local workspace = cloneref(game:GetService('Workspace'))
                 local enemies = workspace:FindFirstChild('Mobs')
 
-                local delay = 0.5 -- Increased from 0.3 to 0.5
+                local delay = 0.2 -- Increased from 0.3 to 0.5
 
                 while killAuraRunning do
                     if enemies then
@@ -303,7 +303,7 @@ do
                 :WaitForChild('Dungeons')
                 :WaitForChild('SetExitChoice')
                 :FireServer(unpack(args))
-            wait(0.2) -- Increased from 0.1
+            wait(4) -- Increased from 0.1
         end
     end)
 
