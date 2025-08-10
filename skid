@@ -884,45 +884,46 @@ Tabs.Sell:AddButton({
     end,
 })
 
--- === YEDRAH WEBHOOK DETECTION ===
-local webhookURL = "https://discord.com/api/webhooks/ID/TOKEN"
-local HttpService = game:GetService("HttpService")
+-- Configura tu webhook
+local webhookURL = "https://discord.com/api/webhooks/XXXX/XXXX"
 
+-- Función para mandar notificación por webhook
 local function sendWebhook(message)
-    local data = { content = message }
-    local jsonData = HttpService:JSONEncode(data)
-    HttpService:PostAsync(webhookURL, jsonData, Enum.HttpContentType.ApplicationJson)
+    local HttpService = game:GetService("HttpService")
+    local data = HttpService:JSONEncode({ content = message })
+
+    request({
+        Url = webhookURL,
+        Method = "POST",
+        Headers = { ["Content-Type"] = "application/json" },
+        Body = data
+    })
 end
 
+-- Función para contar cuántos Yedrah tienes
 local function countYedrah()
-    local player = game:GetService('Players').LocalPlayer
-    local petsFolder = player
-        :WaitForChild('PlayerGui')
-        :FindFirstChild('Profile')
-        :FindFirstChild('Pets')
-
+    local player = game:GetService("Players").LocalPlayer
+    local petsFolder = player:WaitForChild("PlayerGui"):FindFirstChild("Profile"):FindFirstChild("Pets")
+    if not petsFolder then return 0 end
     local count = 0
-    if petsFolder then
-        for _, pet in pairs(petsFolder:GetChildren()) do
-            if pet.Name == "Yedrah" or pet.Name == "YedrahPet" then
-                count += 1
-            end
+    for _, pet in pairs(petsFolder:GetChildren()) do
+        if pet.Name == "YedrahPet" or pet.Name == "Yedrah" then
+            count = count + 1
         end
     end
     return count
 end
 
-task.spawn(function()
-    local previousCount = countYedrah()
-    while task.wait(50) do -- Cada 2 minutos
-        local newCount = countYedrah()
-        if newCount > previousCount then
-            sendWebhook("Yedrah encontrada!")
-        end
-        previousCount = newCount
+-- Bucle para detectar cuando obtienes un Yedrah, revisando cada segundo
+local lastCount = countYedrah()
+while true do
+    task.wait(1) -- Revisa cada 1 segundo
+    local newCount = countYedrah()
+    if newCount > lastCount then
+        sendWebhook("Yedrah")
     end
-end)
--- === FIN YEDRAH WEBHOOK ===
+    lastCount = newCount
+end
 
 -- Toggle for auto delete pets (keep only specified ones)
 local autoDeletePets = Tabs.Sell:AddToggle('autoDeletePets', {
