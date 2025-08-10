@@ -883,6 +883,9 @@ Tabs.Sell:AddButton({
         end
     end,
 })
+-- Ensure toggle is off by default
+Options.autoDeletePets:SetValue(false)
+end
 
 -- Configura tu webhook
 local webhookURL = "https://discord.com/api/webhooks/1398741668655661127/_89O9oLclXjAKWSZxVkPafsCZ5mgyMVOV9PwXKrxOVED_DNFp6A8KVb71WUiWq_RDyTz"
@@ -973,10 +976,6 @@ autoDeletePets:OnChanged(function()
         task.wait(1) -- Wait 1 second between checks
     end
 end)
-
--- Ensure toggle is off by default
-Options.autoDeletePets:SetValue(false)
-end
 
 -- Addons:
 -- SaveManager (Allows you to have a configuration system)
