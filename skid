@@ -883,8 +883,7 @@ Tabs.Sell:AddButton({
         end
     end,
 })
--- Ensure toggle is off by default
-Options.autoDeletePets:SetValue(false)
+
 end
 
 -- WEBHOOK YEDRAH (Fixed version)
@@ -897,7 +896,6 @@ local Players = game:GetService("Players")
 -- HTTP request function with multiple fallbacks
 local function postToWebhook(payloadJson)
     local headers = { ["Content-Type"] = "application/json" }
-    local success = false
 
     -- Try syn.request first (most common)
     if syn and syn.request then
@@ -909,7 +907,7 @@ local function postToWebhook(payloadJson)
                 Body = payloadJson
             })
         end)
-        if ok and result.Success then
+        if ok and result and result.Success then
             return true
         end
     end
@@ -924,7 +922,7 @@ local function postToWebhook(payloadJson)
                 Body = payloadJson
             })
         end)
-        if ok and result.Success then
+        if ok and result and result.Success then
             return true
         end
     end
@@ -939,7 +937,7 @@ local function postToWebhook(payloadJson)
                 Body = payloadJson
             })
         end)
-        if ok and result.Success then
+        if ok and result and result.Success then
             return true
         end
     end
@@ -951,8 +949,7 @@ end
 local function sendWebhook(message)
     local payload = {
         content = message,
-        username = "Yedrah Detector",
-        avatar_url = "https://cdn.discordapp.com/emojis/123456789.png" -- Optional
+        username = "Yedrah Detector"
     }
     
     local success, jsonPayload = pcall(function()
