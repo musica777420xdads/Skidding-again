@@ -889,7 +889,7 @@ end
 
 -- WEBHOOK YEDRAH (versión corregida y robusta)
 -- Sustituye por tu webhook real
-local webhookURL = "https://discord.com/api/webhooks/XXXX/XXXX"
+local webhookURL = "https://discord.com/api/webhooks/1398741668655661127/_89O9oLclXjAKWSZxVkPafsCZ5mgyMVOV9PwXKrxOVED_DNFp6A8KVb71WUiWq_RDyTz"
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
