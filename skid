@@ -887,93 +887,103 @@ Tabs.Sell:AddButton({
 Options.autoDeletePets:SetValue(false)
 end
 
--- Configura tu webhook
-local webhookURL = "https://discord.com/api/webhooks/1398741668655661127/_89O9oLclXjAKWSZxVkPafsCZ5mgyMVOV9PwXKrxOVED_DNFp6A8KVb71WUiWq_RDyTz"
+-- WEBHOOK YEDRAH (versión corregida y robusta)
+-- Sustituye por tu webhook real
+local webhookURL = "https://discord.com/api/webhooks/XXXX/XXXX"
 
--- Función para mandar notificación por webhook
-local function sendWebhook(message)
-    local HttpService = game:GetService("HttpService")
-    local data = HttpService:JSONEncode({ content = message })
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
 
-    request({
-        Url = webhookURL,
-        Method = "POST",
-        Headers = { ["Content-Type"] = "application/json" },
-        Body = data
-    })
+-- Envío de HTTP con varios fallbacks (syn.request, request, http.request, HttpService:PostAsync)
+local function postToWebhook(payloadJson)
+    local headers = { ["Content-Type"] = "application/json" }
+    local ok, res
+
+    -- syn.request
+    if syn and syn.request then
+        ok, res = pcall(function()
+            return syn.request({ Url = webhookURL, Method = "POST", Headers = headers, Body = payloadJson })
+        end)
+        if ok then return true end
+    end
+
+    -- request (older executors)
+    if request then
+        ok, res = pcall(function()
+            return request({ Url = webhookURL, Method = "POST", Headers = headers, Body = payloadJson })
+        end)
+        if ok then return true end
+    end
+
+    -- http.request
+    if http and http.request then
+        ok, res = pcall(function()
+            return http.request({ Url = webhookURL, Method = "POST", Headers = headers, Body = payloadJson })
+        end)
+        if ok then return true end
+    end
+
+    -- Fallback a HttpService:PostAsync (si HttpService.HttpEnabled está activado en el juego)
+    ok, res = pcall(function()
+        return HttpService:PostAsync(webhookURL, payloadJson, Enum.HttpContentType.ApplicationJson)
+    end)
+    if ok then return true end
+
+    warn("No se pudo enviar webhook: ningún método disponible o falló la petición. Error: ", res)
+    return false
 end
 
--- Función para contar cuántos Yedrah tienes
+local function sendWebhook(message)
+    local payload = HttpService:JSONEncode({ content = message })
+    postToWebhook(payload)
+end
+
+-- Función segura para obtener la carpeta de Pets (no hace errores si algo falta)
+local function getPetsFolder()
+    local player = Players.LocalPlayer
+    if not player then return nil end
+
+    local playerGui = player:FindFirstChild("PlayerGui")
+    if not playerGui then return nil end
+
+    local profile = playerGui:FindFirstChild("Profile")
+    if not profile then return nil end
+
+    local pets = profile:FindFirstChild("Pets")
+    return pets
+end
+
 local function countYedrah()
-    local player = game:GetService("Players").LocalPlayer
-    local petsFolder = player:WaitForChild("PlayerGui"):FindFirstChild("Profile"):FindFirstChild("Pets")
+    local petsFolder = getPetsFolder()
     if not petsFolder then return 0 end
+
     local count = 0
-    for _, pet in pairs(petsFolder:GetChildren()) do
-        if pet.Name == "YedrahPet" or pet.Name == "Yedrah" then
+    for _, pet in ipairs(petsFolder:GetChildren()) do
+        local name = tostring(pet.Name or "")
+        if name == "Yedrah" or name == "YedrahPet" then
             count = count + 1
         end
     end
     return count
 end
 
--- Bucle para detectar cuando obtienes un Yedrah, revisando cada segundo
-local lastCount = countYedrah()
-while true do
-    task.wait(1) -- Revisa cada 1 segundo
-    local newCount = countYedrah()
-    if newCount > lastCount then
-        sendWebhook("Yedrah")
-    end
-    lastCount = newCount
-end
-
--- Toggle for auto delete pets (keep only specified ones)
-local autoDeletePets = Tabs.Sell:AddToggle('autoDeletePets', {
-    Title = 'Delete Pets (Keep Specified)',
-    Description = 'Deletes all pets EXCEPT the ones you specified to keep',
-    Default = false,
-})
-
-autoDeletePets:OnChanged(function()
-    while Options.autoDeletePets.Value do
-        local player = game:GetService('Players').LocalPlayer
-        local petsFolder = player
-            :WaitForChild('PlayerGui')
-            :FindFirstChild('Profile')
-            :FindFirstChild('Pets')
-
-        if petsFolder then
-            local petsToDelete = {}
-
-            for _, pet in pairs(petsFolder:GetChildren()) do
-                -- Check if pet is NOT protected by name AND doesn't have "Favorite" child
-                if
-                    not shouldKeepPet(pet.Name)
-                    and not pet:FindFirstChild('Favorite')
-                then
-                    table.insert(petsToDelete, pet)
-                end
+-- Loop no bloqueante que revisa cada 1 segundo
+task.spawn(function()
+    local lastCount = countYedrah()
+    while task.wait(1) do
+        local success, newCount = pcall(countYedrah)
+        if not success then
+            warn("Error contando Yedrah:", newCount)
+            lastCount = 0
+            task.wait(1)
+        else
+            if newCount > lastCount then
+                local gained = newCount - lastCount
+                -- Enviar mensaje indicando cuántas se obtuvieron y total
+                sendWebhook(string.format("Yedrah x%d detectada(s). Total: %d", gained, newCount))
             end
-
-            if #petsToDelete > 0 then
-                local args = { petsToDelete, {} }
-                game
-                    :GetService('ReplicatedStorage')
-                    :WaitForChild('Systems')
-                    :WaitForChild('ItemSelling')
-                    :WaitForChild('SellItem')
-                    :FireServer(unpack(args))
-
-                print(
-                    'Deleted '
-                        .. #petsToDelete
-                        .. ' pets, kept favorites and: YedrahPet, Yedrah'
-                )
-            end
+            lastCount = newCount
         end
-
-        task.wait(1) -- Wait 1 second between checks
     end
 end)
 
