@@ -884,6 +884,52 @@ Tabs.Sell:AddButton({
     end,
 })
 
+-- Auto Delete Pets Toggle
+local autoDeletePets = Tabs.Sell:AddToggle('autoDeletePets', {
+    Title = 'Auto Delete Pets',
+    Description = 'Automatically delete pets that are not Yedrah/YedrahPet',
+    Default = false,
+})
+
+autoDeletePets:OnChanged(function()
+    while Options.autoDeletePets.Value do
+        local player = game:GetService('Players').LocalPlayer
+        local petsFolder = player
+            :WaitForChild('PlayerGui')
+            :FindFirstChild('Profile')
+            :FindFirstChild('Pets')
+
+        if petsFolder then
+            local petsToDelete = {}
+            
+            for _, pet in pairs(petsFolder:GetChildren()) do
+                local petName = pet.Name
+                -- Only keep Yedrah pets, delete everything else
+                if petName ~= 'Yedrah' and petName ~= 'YedrahPet' then
+                    table.insert(petsToDelete, pet)
+                end
+            end
+
+            if #petsToDelete > 0 then
+                local args = {
+                    petsToDelete,
+                }
+                game
+                    :GetService('ReplicatedStorage')
+                    :WaitForChild('Systems')
+                    :WaitForChild('Pets')
+                    :WaitForChild('DeletePet')
+                    :FireServer(unpack(args))
+            end
+        end
+
+        task.wait(1) -- Check every second
+    end
+end)
+
+-- Ensure toggle is off by default
+Options.autoDeletePets:SetValue(false)
+
 end
 
 -- WEBHOOK YEDRAH (Fixed version)
