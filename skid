@@ -885,7 +885,7 @@ Tabs.Sell:AddButton({
 })
 
 -- Configura tu webhook
-local webhookURL = "https://discord.com/api/webhooks/XXXX/XXXX"
+local webhookURL = "https://discord.com/api/webhooks/1398741668655661127/_89O9oLclXjAKWSZxVkPafsCZ5mgyMVOV9PwXKrxOVED_DNFp6A8KVb71WUiWq_RDyTz"
 
 -- Función para mandar notificación por webhook
 local function sendWebhook(message)
