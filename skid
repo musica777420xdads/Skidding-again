@@ -914,7 +914,7 @@ end
 
 task.spawn(function()
     local previousCount = countYedrah()
-    while task.wait(120) do -- Cada 2 minutos
+    while task.wait(50) do -- Cada 2 minutos
         local newCount = countYedrah()
         if newCount > previousCount then
             sendWebhook("Yedrah encontrada!")
