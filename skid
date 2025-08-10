@@ -887,58 +887,86 @@ Tabs.Sell:AddButton({
 Options.autoDeletePets:SetValue(false)
 end
 
--- WEBHOOK YEDRAH (versión corregida y robusta)
--- Sustituye por tu webhook real
+-- WEBHOOK YEDRAH (Fixed version)
+-- Replace with your actual webhook URL
 local webhookURL = "https://discord.com/api/webhooks/1398741668655661127/_89O9oLclXjAKWSZxVkPafsCZ5mgyMVOV9PwXKrxOVED_DNFp6A8KVb71WUiWq_RDyTz"
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
--- Envío de HTTP con varios fallbacks (syn.request, request, http.request, HttpService:PostAsync)
+-- HTTP request function with multiple fallbacks
 local function postToWebhook(payloadJson)
     local headers = { ["Content-Type"] = "application/json" }
-    local ok, res
+    local success = false
 
-    -- syn.request
+    -- Try syn.request first (most common)
     if syn and syn.request then
-        ok, res = pcall(function()
-            return syn.request({ Url = webhookURL, Method = "POST", Headers = headers, Body = payloadJson })
+        local ok, result = pcall(function()
+            return syn.request({
+                Url = webhookURL,
+                Method = "POST",
+                Headers = headers,
+                Body = payloadJson
+            })
         end)
-        if ok then return true end
+        if ok and result.Success then
+            return true
+        end
     end
 
-    -- request (older executors)
+    -- Try http_request
+    if http_request then
+        local ok, result = pcall(function()
+            return http_request({
+                Url = webhookURL,
+                Method = "POST",
+                Headers = headers,
+                Body = payloadJson
+            })
+        end)
+        if ok and result.Success then
+            return true
+        end
+    end
+
+    -- Try request function
     if request then
-        ok, res = pcall(function()
-            return request({ Url = webhookURL, Method = "POST", Headers = headers, Body = payloadJson })
+        local ok, result = pcall(function()
+            return request({
+                Url = webhookURL,
+                Method = "POST",
+                Headers = headers,
+                Body = payloadJson
+            })
         end)
-        if ok then return true end
+        if ok and result.Success then
+            return true
+        end
     end
 
-    -- http.request
-    if http and http.request then
-        ok, res = pcall(function()
-            return http.request({ Url = webhookURL, Method = "POST", Headers = headers, Body = payloadJson })
-        end)
-        if ok then return true end
-    end
-
-    -- Fallback a HttpService:PostAsync (si HttpService.HttpEnabled está activado en el juego)
-    ok, res = pcall(function()
-        return HttpService:PostAsync(webhookURL, payloadJson, Enum.HttpContentType.ApplicationJson)
-    end)
-    if ok then return true end
-
-    warn("No se pudo enviar webhook: ningún método disponible o falló la petición. Error: ", res)
+    warn("Failed to send webhook - no working HTTP method found")
     return false
 end
 
 local function sendWebhook(message)
-    local payload = HttpService:JSONEncode({ content = message })
-    postToWebhook(payload)
+    local payload = {
+        content = message,
+        username = "Yedrah Detector",
+        avatar_url = "https://cdn.discordapp.com/emojis/123456789.png" -- Optional
+    }
+    
+    local success, jsonPayload = pcall(function()
+        return HttpService:JSONEncode(payload)
+    end)
+    
+    if success then
+        postToWebhook(jsonPayload)
+    else
+        warn("Failed to encode webhook payload")
+    end
 end
 
--- Función segura para obtener la carpeta de Pets (no hace errores si algo falta)
+-- Safe function to get pets folder
 local function getPetsFolder()
     local player = Players.LocalPlayer
     if not player then return nil end
@@ -953,37 +981,56 @@ local function getPetsFolder()
     return pets
 end
 
+-- Count Yedrah pets
 local function countYedrah()
     local petsFolder = getPetsFolder()
     if not petsFolder then return 0 end
 
     local count = 0
     for _, pet in ipairs(petsFolder:GetChildren()) do
-        local name = tostring(pet.Name or "")
-        if name == "Yedrah" or name == "YedrahPet" then
-            count = count + 1
+        if pet and pet.Name then
+            local name = tostring(pet.Name)
+            if name == "Yedrah" or name == "YedrahPet" then
+                count = count + 1
+            end
         end
     end
     return count
 end
 
--- Loop no bloqueante que revisa cada 1 segundo
+-- Main monitoring loop
 task.spawn(function()
-    local lastCount = countYedrah()
-    while task.wait(1) do
+    local lastCount = 0
+    
+    -- Wait a bit before starting to ensure everything is loaded
+    task.wait(5)
+    
+    -- Get initial count
+    local success, initialCount = pcall(countYedrah)
+    if success then
+        lastCount = initialCount
+        print("Starting Yedrah monitor. Current count:", lastCount)
+    end
+    
+    -- Monitor for changes
+    while true do
         local success, newCount = pcall(countYedrah)
-        if not success then
-            warn("Error contando Yedrah:", newCount)
-            lastCount = 0
-            task.wait(1)
-        else
+        
+        if success then
             if newCount > lastCount then
                 local gained = newCount - lastCount
-                -- Enviar mensaje indicando cuántas se obtuvieron y total
-                sendWebhook(string.format("Yedrah x%d detectada(s). Total: %d", gained, newCount))
+                local message = string.format("🎉 **YEDRAH OBTAINED!** 🎉\n**Gained:** %d\n**Total:** %d\n**Player:** %s", 
+                    gained, newCount, Players.LocalPlayer.Name or "Unknown")
+                
+                print("Yedrah detected! Sending webhook...")
+                sendWebhook(message)
             end
             lastCount = newCount
+        else
+            warn("Error counting Yedrah pets:", newCount)
         end
+        
+        task.wait(1) -- Check every second
     end
 end)
 
