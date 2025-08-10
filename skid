@@ -815,126 +815,166 @@ do
         end
     end)
 
-    -- Ensure toggle is off by default
-    Options.autobuyChests:SetValue(false)
+-- Ensure toggle is off by default
+Options.autobuyChests:SetValue(false)
 
-    -- Add Section for Pet Management
-    Tabs.Sell:AddSection('Pet Management')
+-- Add Section for Pet Management
+Tabs.Sell:AddSection('Pet Management')
 
-    -- Input field for pets to keep
-    local petsToKeep = ''
-    local petsToKeepInput = Tabs.Sell:AddInput('petsToKeepInput', {
-        Title = 'Pets to Keep (Names)',
-        Description = 'Enter pet names to keep, separated by commas',
-        Default = '',
-        Placeholder = 'Example: Dragon, Phoenix, Unicorn',
-        Numeric = false,
-        Finished = false,
-    })
+-- Input field for pets to keep
+local petsToKeep = ''
+local petsToKeepInput = Tabs.Sell:AddInput('petsToKeepInput', {
+    Title = 'Pets to Keep (Names)',
+    Description = 'Enter pet names to keep, separated by commas',
+    Default = '',
+    Placeholder = 'Example: Dragon, Phoenix, Unicorn',
+    Numeric = false,
+    Finished = false,
+})
 
-    petsToKeepInput:OnChanged(function(Value)
-        petsToKeep = Value
-    end)
+petsToKeepInput:OnChanged(function(Value)
+    petsToKeep = Value
+end)
 
-    -- Make sure the variable updates when config loads
-    Options.petsToKeepInput = petsToKeepInput
+-- Make sure the variable updates when config loads
+Options.petsToKeepInput = petsToKeepInput
 
-    -- Function to check if pet should be kept
-    local function shouldKeepPet(petName)
-        -- Only keep pets with exactly these names
-        if petName == 'YedrahPet' or petName == 'Yedrah' then
-            return true
-        else
-            return false
+-- Function to check if pet should be kept
+local function shouldKeepPet(petName)
+    -- Only keep pets with exactly these names
+    if petName == 'YedrahPet' or petName == 'Yedrah' then
+        return true
+    else
+        return false
+    end
+end
+
+-- Button to show current pets (for reference)
+Tabs.Sell:AddButton({
+    Title = 'Show My Pets',
+    Description = 'Print current pet names to console for reference',
+    Callback = function()
+        local player = game:GetService('Players').LocalPlayer
+        local petsFolder = player
+            :WaitForChild('PlayerGui')
+            :FindFirstChild('Profile')
+            :FindFirstChild('Pets')
+
+        if petsFolder then
+            local petNames = {}
+            for _, pet in pairs(petsFolder:GetChildren()) do
+                table.insert(petNames, pet.Name)
+            end
+
+            if #petNames > 0 then
+                print('Your current pets: ' .. table.concat(petNames, ', '))
+                Fluent:Notify({
+                    Title = 'Pet List',
+                    Content = 'Check console/output for your pet names!',
+                    Duration = 3,
+                })
+            else
+                Fluent:Notify({
+                    Title = 'No Pets',
+                    Content = 'No pets found in your inventory',
+                    Duration = 3,
+                })
+            end
+        end
+    end,
+})
+
+-- === YEDRAH WEBHOOK DETECTION ===
+local webhookURL = "https://discord.com/api/webhooks/ID/TOKEN"
+local HttpService = game:GetService("HttpService")
+
+local function sendWebhook(message)
+    local data = { content = message }
+    local jsonData = HttpService:JSONEncode(data)
+    HttpService:PostAsync(webhookURL, jsonData, Enum.HttpContentType.ApplicationJson)
+end
+
+local function countYedrah()
+    local player = game:GetService('Players').LocalPlayer
+    local petsFolder = player
+        :WaitForChild('PlayerGui')
+        :FindFirstChild('Profile')
+        :FindFirstChild('Pets')
+
+    local count = 0
+    if petsFolder then
+        for _, pet in pairs(petsFolder:GetChildren()) do
+            if pet.Name == "Yedrah" or pet.Name == "YedrahPet" then
+                count += 1
+            end
         end
     end
+    return count
+end
 
-    -- Button to show current pets (for reference)
-    Tabs.Sell:AddButton({
-        Title = 'Show My Pets',
-        Description = 'Print current pet names to console for reference',
-        Callback = function()
-            local player = game:GetService('Players').LocalPlayer
-            local petsFolder = player
-                :WaitForChild('PlayerGui')
-                :FindFirstChild('Profile')
-                :FindFirstChild('Pets')
-
-            if petsFolder then
-                local petNames = {}
-                for _, pet in pairs(petsFolder:GetChildren()) do
-                    table.insert(petNames, pet.Name)
-                end
-
-                if #petNames > 0 then
-                    print('Your current pets: ' .. table.concat(petNames, ', '))
-                    Fluent:Notify({
-                        Title = 'Pet List',
-                        Content = 'Check console/output for your pet names!',
-                        Duration = 3,
-                    })
-                else
-                    Fluent:Notify({
-                        Title = 'No Pets',
-                        Content = 'No pets found in your inventory',
-                        Duration = 3,
-                    })
-                end
-            end
-        end,
-    })
-
-    -- Toggle for auto delete pets (keep only specified ones)
-    local autoDeletePets = Tabs.Sell:AddToggle('autoDeletePets', {
-        Title = 'Delete Pets (Keep Specified)',
-        Description = 'Deletes all pets EXCEPT the ones you specified to keep',
-        Default = false,
-    })
-
-    autoDeletePets:OnChanged(function()
-        while Options.autoDeletePets.Value do
-            local player = game:GetService('Players').LocalPlayer
-            local petsFolder = player
-                :WaitForChild('PlayerGui')
-                :FindFirstChild('Profile')
-                :FindFirstChild('Pets')
-
-            if petsFolder then
-                local petsToDelete = {}
-
-                for _, pet in pairs(petsFolder:GetChildren()) do
-                    -- Check if pet is NOT protected by name AND doesn't have "Favorite" child
-                    if
-                        not shouldKeepPet(pet.Name)
-                        and not pet:FindFirstChild('Favorite')
-                    then
-                        table.insert(petsToDelete, pet)
-                    end
-                end
-
-                if #petsToDelete > 0 then
-                    local args = { petsToDelete, {} }
-                    game
-                        :GetService('ReplicatedStorage')
-                        :WaitForChild('Systems')
-                        :WaitForChild('ItemSelling')
-                        :WaitForChild('SellItem')
-                        :FireServer(unpack(args))
-
-                    print(
-                        'Deleted '
-                            .. #petsToDelete
-                            .. ' pets, kept favorites and: YedrahPet, Yedrah'
-                    )
-                end
-            end
-
-            task.wait(1) -- Wait 1 second between checks
+task.spawn(function()
+    local previousCount = countYedrah()
+    while task.wait(120) do -- Cada 2 minutos
+        local newCount = countYedrah()
+        if newCount > previousCount then
+            sendWebhook("Yedrah encontrada!")
         end
-    end)
+        previousCount = newCount
+    end
+end)
+-- === FIN YEDRAH WEBHOOK ===
 
-    -- Ensure toggle is off by default
-    Options.autoDeletePets:SetValue(false)
+-- Toggle for auto delete pets (keep only specified ones)
+local autoDeletePets = Tabs.Sell:AddToggle('autoDeletePets', {
+    Title = 'Delete Pets (Keep Specified)',
+    Description = 'Deletes all pets EXCEPT the ones you specified to keep',
+    Default = false,
+})
+
+autoDeletePets:OnChanged(function()
+    while Options.autoDeletePets.Value do
+        local player = game:GetService('Players').LocalPlayer
+        local petsFolder = player
+            :WaitForChild('PlayerGui')
+            :FindFirstChild('Profile')
+            :FindFirstChild('Pets')
+
+        if petsFolder then
+            local petsToDelete = {}
+
+            for _, pet in pairs(petsFolder:GetChildren()) do
+                -- Check if pet is NOT protected by name AND doesn't have "Favorite" child
+                if
+                    not shouldKeepPet(pet.Name)
+                    and not pet:FindFirstChild('Favorite')
+                then
+                    table.insert(petsToDelete, pet)
+                end
+            end
+
+            if #petsToDelete > 0 then
+                local args = { petsToDelete, {} }
+                game
+                    :GetService('ReplicatedStorage')
+                    :WaitForChild('Systems')
+                    :WaitForChild('ItemSelling')
+                    :WaitForChild('SellItem')
+                    :FireServer(unpack(args))
+
+                print(
+                    'Deleted '
+                        .. #petsToDelete
+                        .. ' pets, kept favorites and: YedrahPet, Yedrah'
+                )
+            end
+        end
+
+        task.wait(1) -- Wait 1 second between checks
+    end
+end)
+
+-- Ensure toggle is off by default
+Options.autoDeletePets:SetValue(false)
 end
 
 -- Addons:
