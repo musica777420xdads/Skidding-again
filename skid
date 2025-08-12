@@ -98,45 +98,53 @@ end
 
 -- Enter the appropriate dungeon
 local function enterDungeon()
-    ReplicatedStorage
-        :WaitForChild('Systems')
-        :WaitForChild('Parties')
-        :WaitForChild('SetSettings')
-        :FireServer(unpack(dungeonArgs))
-    print('Entered dungeon:', dungeonArgs[1])
+    pcall(function()
+        ReplicatedStorage
+            :WaitForChild('Systems')
+            :WaitForChild('Parties')
+            :WaitForChild('SetSettings')
+            :FireServer(unpack(dungeonArgs))
+        print('Entered dungeon:', dungeonArgs[1])
+    end)
 end
 
 -- Return to lobby function
 local function returnToLobby()
-    ReplicatedStorage
-        :WaitForChild('Systems')
-        :WaitForChild('Dungeons')
-        :WaitForChild('ExitDungeon')
-        :FireServer()
-    print('Returned to lobby')
+    pcall(function()
+        ReplicatedStorage
+            :WaitForChild('Systems')
+            :WaitForChild('Dungeons')
+            :WaitForChild('ExitDungeon')
+            :FireServer()
+        print('Returned to lobby')
+    end)
 end
 
 -- Kill Aura functionality
 local killAuraRunning = true
 local function startKillAura()
     task.spawn(function()
-        local enemies = Workspace:FindFirstChild('Mobs')
-        local delay = 0.22
-
         while killAuraRunning do
-            if enemies then
-                local mobs = {}
-                for _, v in ipairs(enemies:GetChildren()) do
-                    table.insert(mobs, v)
-                end
+            pcall(function()
+                local enemies = Workspace:FindFirstChild('Mobs')
+                if enemies then
+                    local mobs = {}
+                    for _, v in ipairs(enemies:GetChildren()) do
+                        if v:GetAttribute('HP') and v:GetAttribute('HP') > 0 then
+                            table.insert(mobs, v)
+                        end
+                    end
 
-                ReplicatedStorage
-                    :WaitForChild('Systems')
-                    :WaitForChild('Combat')
-                    :WaitForChild('PlayerAttack')
-                    :FireServer(mobs)
-            end
-            task.wait(delay)
+                    if #mobs > 0 then
+                        ReplicatedStorage
+                            :WaitForChild('Systems')
+                            :WaitForChild('Combat')
+                            :WaitForChild('PlayerAttack')
+                            :FireServer(mobs)
+                    end
+                end
+            end)
+            task.wait(0.22)
         end
     end)
 end
@@ -146,11 +154,13 @@ local autoStartRunning = true
 local function startAutoStart()
     task.spawn(function()
         while autoStartRunning do
-            ReplicatedStorage
-                :WaitForChild('Systems')
-                :WaitForChild('Dungeons')
-                :WaitForChild('TriggerStartDungeon')
-                :FireServer()
+            pcall(function()
+                ReplicatedStorage
+                    :WaitForChild('Systems')
+                    :WaitForChild('Dungeons')
+                    :WaitForChild('TriggerStartDungeon')
+                    :FireServer()
+            end)
             task.wait(0.2)
         end
     end)
@@ -162,54 +172,54 @@ local itemManagementCounter = 0
 local function startAutoPlayAgain()
     task.spawn(function()
         while autoPlayAgainRunning do
-            local args = { 'GoAgain' }
-            ReplicatedStorage
-                :WaitForChild('Systems')
-                :WaitForChild('Dungeons')
-                :WaitForChild('SetExitChoice')
-                :FireServer(unpack(args))
-            end
-
-            -- Check current level and get new dungeon config
-            local currentLevel = player.leaderstats.Level.Value
-            local newDungeonArgs = getDungeonConfig(currentLevel)
-
-            -- Check if we need to switch dungeons
-            local currentDungeon = getCurrentDungeon()
-
-            if currentDungeon == newDungeonArgs[1] then
-                -- Already in the correct dungeon for new level
-                print('Level', currentLevel, '- Already in correct dungeon:', currentDungeon)
-                dungeonArgs = newDungeonArgs
-            elseif newDungeonArgs[1] ~= dungeonArgs[1] then
-                -- Level changed and need different dungeon
-                print('Level changed! Current dungeon:', currentDungeon or 'Unknown')
-                print('New level:', currentLevel, '| Target dungeon:', newDungeonArgs[1])
-
-                print('Switching dungeons...')
-
-                -- Exit to lobby first if in a dungeon
-                if currentDungeon ~= nil then
-                    print('Exiting current dungeon...')
-                    returnToLobby()
-                    task.wait(5)
-                end
-
-                dungeonArgs = newDungeonArgs
-
-                -- Enter the new appropriate dungeon
+            pcall(function()
+                local args = { 'GoAgain' }
                 ReplicatedStorage
                     :WaitForChild('Systems')
-                    :WaitForChild('Parties')
-                    :WaitForChild('SetSettings')
-                    :FireServer(unpack(dungeonArgs))
-                print('Entered new dungeon:', dungeonArgs[1])
-                task.wait(3)
-            else
-                -- Same level range, same dungeon - keep farming
-                print('Level', currentLevel, '- Continuing in', dungeonArgs[1])
-            end
+                    :WaitForChild('Dungeons')
+                    :WaitForChild('SetExitChoice')
+                    :FireServer(unpack(args))
 
+                -- Check current level and get new dungeon config
+                local currentLevel = player.leaderstats.Level.Value
+                local newDungeonArgs = getDungeonConfig(currentLevel)
+
+                -- Check if we need to switch dungeons
+                local currentDungeon = getCurrentDungeon()
+
+                if currentDungeon == newDungeonArgs[1] then
+                    -- Already in the correct dungeon for new level
+                    print('Level', currentLevel, '- Already in correct dungeon:', currentDungeon)
+                    dungeonArgs = newDungeonArgs
+                elseif newDungeonArgs[1] ~= dungeonArgs[1] then
+                    -- Level changed and need different dungeon
+                    print('Level changed! Current dungeon:', currentDungeon or 'Unknown')
+                    print('New level:', currentLevel, '| Target dungeon:', newDungeonArgs[1])
+
+                    print('Switching dungeons...')
+
+                    -- Exit to lobby first if in a dungeon
+                    if currentDungeon ~= nil then
+                        print('Exiting current dungeon...')
+                        returnToLobby()
+                        task.wait(5)
+                    end
+
+                    dungeonArgs = newDungeonArgs
+
+                    -- Enter the new appropriate dungeon
+                    ReplicatedStorage
+                        :WaitForChild('Systems')
+                        :WaitForChild('Parties')
+                        :WaitForChild('SetSettings')
+                        :FireServer(unpack(dungeonArgs))
+                    print('Entered new dungeon:', dungeonArgs[1])
+                    task.wait(3)
+                else
+                    -- Same level range, same dungeon - keep farming
+                    print('Level', currentLevel, '- Continuing in', dungeonArgs[1])
+                end
+            end)
             task.wait(6) -- Wait before next cycle
         end
     end)
@@ -237,12 +247,15 @@ local function getClosestMob()
             and v.Name ~= 'Side Room Rune Disabled'
             and v.Name ~= 'TargetDummy'
         then
-            local dist = (
-                v:GetPivot().Position - player.Character:GetPivot().Position
-            ).Magnitude
-            if dist < distance then
-                distance = dist
-                mob = v
+            local character = player.Character
+            if character and character:FindFirstChild('HumanoidRootPart') then
+                local dist = (
+                    v:GetPivot().Position - character:GetPivot().Position
+                ).Magnitude
+                if dist < distance then
+                    distance = dist
+                    mob = v
+                end
             end
         end
     end
@@ -253,48 +266,50 @@ end
 local function startAutoFarm()
     task.spawn(function()
         while autoFarmRunning do
-            local mob = getClosestMob()
-            if mob then
-                task.wait(0.2)
+            pcall(function()
+                local mob = getClosestMob()
+                if mob and player.Character and player.Character:FindFirstChild('HumanoidRootPart') then
+                    task.wait(0.2)
 
-                local velocityConnection = RunService.Heartbeat:Connect(
-                    function()
-                        if
-                            player.Character
-                            and player.Character:FindFirstChild('HumanoidRootPart')
-                        then
-                            player.Character.HumanoidRootPart.AssemblyLinearVelocity = Vector3.zero
-                            player.Character.HumanoidRootPart.AssemblyAngularVelocity = Vector3.zero
+                    local velocityConnection = RunService.Heartbeat:Connect(
+                        function()
+                            if
+                                player.Character
+                                and player.Character:FindFirstChild('HumanoidRootPart')
+                            then
+                                player.Character.HumanoidRootPart.AssemblyLinearVelocity = Vector3.zero
+                                player.Character.HumanoidRootPart.AssemblyAngularVelocity = Vector3.zero
+                            end
                         end
-                    end
-                )
-
-                local character = player.Character
-                local hrp = character and character:FindFirstChild('HumanoidRootPart')
-
-                if hrp and mob then
-                    local to = mob:GetPivot().Position
-                    local distance = (to - hrp.Position).Magnitude
-                    local tween = TweenService:Create(
-                        hrp,
-                        TweenInfo.new(
-                            distance / tweenSpeed,
-                            Enum.EasingStyle.Linear,
-                            Enum.EasingDirection.Out
-                        ),
-                        {
-                            CFrame = CFrame.new(to + Vector3.new(0, yOffset, 0)),
-                        }
                     )
-                    tween:Play()
-                    tween.Completed:Wait()
-                end
 
-                if velocityConnection then
-                    velocityConnection:Disconnect()
+                    local character = player.Character
+                    local hrp = character and character:FindFirstChild('HumanoidRootPart')
+
+                    if hrp and mob then
+                        local to = mob:GetPivot().Position
+                        local distance = (to - hrp.Position).Magnitude
+                        local tween = TweenService:Create(
+                            hrp,
+                            TweenInfo.new(
+                                math.min(distance / tweenSpeed, 10), -- Cap tween time to prevent extremely long tweens
+                                Enum.EasingStyle.Linear,
+                                Enum.EasingDirection.Out
+                            ),
+                            {
+                                CFrame = CFrame.new(to + Vector3.new(0, yOffset, 0)),
+                            }
+                        )
+                        tween:Play()
+                        tween.Completed:Wait()
+                    end
+
+                    if velocityConnection then
+                        velocityConnection:Disconnect()
+                    end
                 end
-            end
-            task.wait()
+            end)
+            task.wait(0.1)
         end
     end)
 end
@@ -307,14 +322,15 @@ end
 local antiAfkRunning = true
 local function startAntiAfk()
     task.spawn(function()
-        local VirtualUser = game:GetService('VirtualUser')
-        
         while antiAfkRunning do
-            -- Simulate player activity to prevent AFK kick
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new())
-            
-            print('🔄 Anti-AFK activated')
+            pcall(function()
+                local VirtualUser = game:GetService('VirtualUser')
+                -- Simulate player activity to prevent AFK kick
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new())
+                
+                print('🔄 Anti-AFK activated')
+            end)
             task.wait(10) -- Check every 10 seconds
         end
     end)
