@@ -1,6 +1,6 @@
 -- Enhanced Level-Based Dungeon Autofarm Script
--- Automatically farms dungeons based on level AND manages magic items
--- Features: Auto equip best magic items (with stat + rarity check), delete duplicates, level-based dungeon switching
+-- Automatically farms dungeons based on level
+-- Features: Level-based dungeon switching, auto combat, auto movement
 
 repeat
     task.wait()
@@ -166,9 +166,8 @@ local function startAutoStart()
     end)
 end
 
--- Enhanced Auto Play Again functionality with item management
+-- Enhanced Auto Play Again functionality
 local autoPlayAgainRunning = true
-local itemManagementCounter = 0
 local function startAutoPlayAgain()
     task.spawn(function()
         while autoPlayAgainRunning do
@@ -340,7 +339,7 @@ end
 -- MAIN EXECUTION
 -- ========================================
 
-print('🚀 Starting Enhanced Level-Based Autofarm with Stat & Rarity Item Management...')
+print('🚀 Starting Enhanced Level-Based Autofarm...')
 print('Target Dungeon:', dungeonArgs[1])
 
 -- Check if already in correct dungeon by PlaceId
@@ -375,9 +374,7 @@ print('Kill Aura: ON')
 print('Auto Start: ON')
 print('Auto Play Again: ON')
 print('Auto Farm Dungeon: ON')
-print('Auto Item Management: ON (every 3 dungeon completions)')
 print('Anti-AFK: ON')
-print('📊 Item Selection: Stats + Rarity (1-6) based scoring')
 
 -- Optional: Stop functions (for manual control)
 --[[
