@@ -1,6 +1,6 @@
 -- Enhanced Level-Based Dungeon Autofarm Script
 -- Automatically farms dungeons based on level AND manages magic items
--- Features: Auto equip best magic items, delete duplicates, level-based dungeon switching
+-- Features: Auto equip best magic items (with stat + rarity check), delete duplicates, level-based dungeon switching
 
 repeat
     task.wait()
@@ -51,6 +51,88 @@ local function hasDesiredStats(item)
     return false
 end
 
+-- Function to get current equipped item in a slot
+local function getCurrentEquippedItem(slot)
+    slot = slot or "Right"
+    
+    if not player:FindFirstChild("PlayerGui") or not player.PlayerGui:FindFirstChild("Profile") then
+        return nil
+    end
+
+    local profile = player.PlayerGui.Profile
+    local equipment = profile:FindFirstChild("Equipment")
+    
+    if not equipment then
+        return nil
+    end
+    
+    -- Find the equipment slot
+    local equipSlot = equipment:FindFirstChild(slot)
+    if not equipSlot then
+        return nil
+    end
+    
+    -- Look for equipped item in the slot
+    for _, child in pairs(equipSlot:GetChildren()) do
+        if child.ClassName ~= "UIListLayout" 
+           and child.ClassName ~= "UIPadding" 
+           and child.ClassName ~= "UICorner" 
+           and child.ClassName ~= "UIStroke"
+           and child.ClassName ~= "TextLabel" then
+            return child
+        end
+    end
+    
+    return nil
+end
+
+-- Function to calculate item score based on stats and rarity
+local function calculateItemScore(item)
+    local score = 0
+    
+    -- Get rarity value (1-6, higher is better)
+    local rarity = item:FindFirstChild("Rarity")
+    if rarity and rarity.Value then
+        score = score + (rarity.Value * 1000) -- Rarity is weighted heavily
+    end
+    
+    -- Get level value
+    local level = item:FindFirstChild("Level")
+    if level and level.Value then
+        score = score + (level.Value * 10)
+    end
+    
+    -- Get stat values
+    local stats = item:FindFirstChild("Stats")
+    if stats then
+        local desiredStats = {"ATK", "CDRATE", "CRITMDG"}
+        for _, statName in pairs(desiredStats) do
+            local stat = stats:FindFirstChild(statName)
+            if stat and stat.Value then
+                score = score + stat.Value
+            end
+        end
+    end
+    
+    return score
+end
+
+-- Function to compare two items and determine which is better
+local function isBetterItem(newItem, currentItem)
+    if not currentItem then
+        return true -- Any item is better than no item
+    end
+    
+    local newScore = calculateItemScore(newItem)
+    local currentScore = calculateItemScore(currentItem)
+    
+    print("🔍 Comparing items:")
+    print("   New item: " .. newItem.Name .. " (Score: " .. newScore .. ")")
+    print("   Current item: " .. currentItem.Name .. " (Score: " .. currentScore .. ")")
+    
+    return newScore > currentScore
+end
+
 -- Function to equip item
 local function equipItem(item, slot)
     local args = {
@@ -67,7 +149,9 @@ local function equipItem(item, slot)
     end)
     
     if success then
-        print("✅ Equipped: " .. item.Name .. " to " .. (slot or "Right") .. " slot")
+        local rarity = item:FindFirstChild("Rarity")
+        local rarityText = rarity and rarity.Value and ("Rarity " .. rarity.Value) or "Unknown Rarity"
+        print("✅ Equipped: " .. item.Name .. " (" .. rarityText .. ") to " .. (slot or "Right") .. " slot")
         return true
     else
         print("❌ Failed to equip " .. item.Name .. ": " .. tostring(error))
@@ -92,14 +176,16 @@ local function deleteItems(itemsToDelete)
     if success then
         print("🗑️ Deleted " .. #itemsToDelete .. " items")
         for _, item in pairs(itemsToDelete) do
-            print("   └─ Deleted: " .. item.Name)
+            local rarity = item:FindFirstChild("Rarity")
+            local rarityText = rarity and rarity.Value and ("R" .. rarity.Value) or "R?"
+            print("   └─ Deleted: " .. item.Name .. " (" .. rarityText .. ")")
         end
     else
         print("❌ Failed to delete items: " .. tostring(error))
     end
 end
 
--- Main auto equip function
+-- Main auto equip function with enhanced stat + rarity checking
 local function autoEquipAndDeleteItems()
     -- Wait for PlayerGui and Profile to load
     if not player:FindFirstChild("PlayerGui") or not player.PlayerGui:FindFirstChild("Profile") then
@@ -115,11 +201,11 @@ local function autoEquipAndDeleteItems()
         return
     end
 
-    print("🔍 Searching for items with MAGIC/CDRATE/CRITMDG stats...")
+    print("🔍 Searching for items with ATK/CDRATE/CRITMDG stats...")
 
     local magicItems = {}
     local bestItem = nil
-    local bestItemValue = 0
+    local bestItemScore = 0
 
     -- Scan inventory for items with desired stats
     for _, item in pairs(inventory:GetChildren()) do
@@ -132,18 +218,16 @@ local function autoEquipAndDeleteItems()
             local hasStats, statType = hasDesiredStats(item)
             if hasStats then
                 table.insert(magicItems, item)
-                print("✨ Found magic item: " .. item.Name .. " (has " .. statType .. ")")
                 
-                -- Try to determine "best" item
-                local level = item:FindFirstChild("Level")
                 local rarity = item:FindFirstChild("Rarity")
+                local rarityText = rarity and rarity.Value and ("R" .. rarity.Value) or "R?"
+                print("✨ Found magic item: " .. item.Name .. " (" .. rarityText .. ", has " .. statType .. ")")
                 
-                local itemValue = 0
-                if level then itemValue = itemValue + (level.Value or 0) end
-                if rarity then itemValue = itemValue + (rarity.Value or 0) * 10 end
+                -- Calculate item score
+                local itemScore = calculateItemScore(item)
                 
-                if itemValue > bestItemValue then
-                    bestItemValue = itemValue
+                if itemScore > bestItemScore then
+                    bestItemScore = itemScore
                     bestItem = item
                 end
             end
@@ -153,15 +237,24 @@ local function autoEquipAndDeleteItems()
     if #magicItems == 0 then
         print("ℹ️ No magic items found to manage")
         return
-    elseif #magicItems == 1 then
-        print("🎯 Only one magic item found, equipping it...")
-        equipItem(magicItems[1])
-        return
     end
 
-    -- Equip the best item and delete the rest
-    if bestItem then
-        print("⚔️ Best item selected: " .. bestItem.Name .. " (value: " .. bestItemValue .. ")")
+    -- Check current equipped item
+    local currentEquippedItem = getCurrentEquippedItem("Right")
+    
+    if currentEquippedItem then
+        local rarity = currentEquippedItem:FindFirstChild("Rarity")
+        local rarityText = rarity and rarity.Value and ("R" .. rarity.Value) or "R?"
+        print("⚔️ Currently equipped: " .. currentEquippedItem.Name .. " (" .. rarityText .. ")")
+    else
+        print("⚔️ No item currently equipped in Right slot")
+    end
+
+    -- Determine if we should equip the best found item
+    if bestItem and isBetterItem(bestItem, currentEquippedItem) then
+        local rarity = bestItem:FindFirstChild("Rarity")
+        local rarityText = rarity and rarity.Value and ("R" .. rarity.Value) or "R?"
+        print("🎯 Best item selected: " .. bestItem.Name .. " (" .. rarityText .. ", Score: " .. bestItemScore .. ")")
         
         local equipped = equipItem(bestItem)
         
@@ -174,13 +267,24 @@ local function autoEquipAndDeleteItems()
                 end
             end
             
-            -- Delete remaining items
+            -- Delete remaining items (excluding currently equipped if it was in inventory)
             if #magicItems > 0 then
                 print("🗑️ Deleting remaining " .. #magicItems .. " magic items...")
                 task.wait(1)
                 deleteItems(magicItems)
             end
         end
+    elseif bestItem then
+        print("ℹ️ Current equipped item is better than inventory items")
+        -- Still delete all magic items since none are better than equipped
+        if #magicItems > 0 then
+            print("🗑️ Deleting all " .. #magicItems .. " inferior magic items...")
+            task.wait(1)
+            deleteItems(magicItems)
+        end
+    elseif #magicItems == 1 and not currentEquippedItem then
+        print("🎯 Only one magic item found and no item equipped, equipping it...")
+        equipItem(magicItems[1])
     end
 end
 
@@ -489,7 +593,7 @@ end
 -- MAIN EXECUTION
 -- ========================================
 
-print('🚀 Starting Enhanced Level-Based Autofarm with Item Management...')
+print('🚀 Starting Enhanced Level-Based Autofarm with Stat & Rarity Item Management...')
 print('Target Dungeon:', dungeonArgs[1])
 
 -- Initial item management
@@ -530,6 +634,7 @@ print('Auto Play Again: ON')
 print('Auto Farm Dungeon: ON')
 print('Auto Item Management: ON (every 3 dungeon completions)')
 print('Anti-AFK: ON')
+print('📊 Item Selection: Stats + Rarity (1-6) based scoring')
 
 -- Optional: Stop functions (for manual control)
 --[[
