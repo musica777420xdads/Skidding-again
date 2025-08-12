@@ -621,6 +621,30 @@ do
     end)
     Options.AntiAfk:SetValue(false)
 
+    -- Auto Execute on Server Hop Button
+    Tabs.AntiAfk:AddButton({
+        Title = 'Auto execute on server hop',
+        Description = 'Automatically execute script when teleporting to new server',
+        Callback = function()
+            -- Set up queue_on_teleport to execute the script when server hopping
+            if queue_on_teleport then
+                queue_on_teleport('loadstring(game:HttpGet("https://raw.githubusercontent.com/musica777420xdads/Skidding-again/refs/heads/main/Main"))()')
+                
+                Fluent:Notify({
+                    Title = 'Auto Execute',
+                    Content = 'Script will auto-execute on server hop!',
+                    Duration = 3,
+                })
+            else
+                Fluent:Notify({
+                    Title = 'Error',
+                    Content = 'queue_on_teleport is not supported by your executor',
+                    Duration = 3,
+                })
+            end
+        end,
+    })
+
     -- SELL TAB FUNCTIONALITY
     -- Add Section for Item Selling
     Tabs.Sell:AddSection('Item Selling')
