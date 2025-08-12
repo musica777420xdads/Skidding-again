@@ -337,10 +337,6 @@ end
 print('🚀 Starting Enhanced Level-Based Autofarm with Stat & Rarity Item Management...')
 print('Target Dungeon:', dungeonArgs[1])
 
--- Initial item management
-print('🎒 Running initial item management...')
-autoEquipAndDeleteItems()
-
 -- Check if already in correct dungeon by PlaceId
 local currentDungeon = getCurrentDungeon()
 local targetDungeon = dungeonArgs[1]
