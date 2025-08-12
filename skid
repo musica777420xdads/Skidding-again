@@ -168,16 +168,6 @@ local function startAutoPlayAgain()
                 :WaitForChild('Dungeons')
                 :WaitForChild('SetExitChoice')
                 :FireServer(unpack(args))
-
-            -- Wait a bit for the exit to process
-            task.wait(3)
-
-            -- Item management every 3 dungeon completions
-            itemManagementCounter = itemManagementCounter + 1
-            if itemManagementCounter >= 3 then
-                print("🎒 Running item management cycle...")
-                autoEquipAndDeleteItems()
-                itemManagementCounter = 0
             end
 
             -- Check current level and get new dungeon config
