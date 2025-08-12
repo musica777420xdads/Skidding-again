@@ -40,7 +40,7 @@ local function getDungeonConfig(level)
     elseif level >= 15 and level <= 29 then
         return { 'MountainDungeon', 4, 1, false, false } -- Orion 15-29 (Mountain)
     elseif level >= 30 and level <= 44 then
-        return { 'CaveDungeon', 4, 1, false, false } -- Cave 30-44
+        return { 'CoveDungeon', 4, 1, false, false } -- Cave 30-44
     elseif level >= 45 and level <= 59 then
         return { 'CastleDungeon', 4, 1, false, false } -- Castle 45-59
     elseif level >= 60 and level <= 74 then
