@@ -628,13 +628,13 @@ do
         Default = false,
     })
 
-    Toggle5:OnChanged(function()
+    Toggle67:OnChanged(function()
         task.spawn(function()
                 queue_on_teleport("loadstring(game:HttpGet('https://raw.githubusercontent.com/musica777420xdads/Skidding-again/refs/heads/main/skid'))()")
             end
         end)
     end)
-    Options.AntiAfk:SetValue(false)
+    Options.Autoexec:SetValue(false)
 
     -- SELL TAB FUNCTIONALITY
     -- Add Section for Item Selling
